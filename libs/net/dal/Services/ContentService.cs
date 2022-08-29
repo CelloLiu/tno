@@ -118,38 +118,12 @@ public class ContentService : BaseService<Content, long>, IContentService
         query = query.Skip(skip).Take(filter.Quantity);
 
         var items = query?.ToArray() ?? Array.Empty<Content>();
-
-        HandleInvalidEncoding(items);
-
         return new Paged<Content>(items, filter.Page, filter.Quantity, total);
-    }
-
-    private void HandleInvalidEncoding(params Content[] contents)
-    {
-        if (contents != null && contents.Length > 0)
-        {
-            var invalidEncodings = new[] { "�e(TM)", "&#39;" };
-            var items = contents.Where(x =>
-                x.Headline.Contains(invalidEncodings[0]) ||
-                x.Summary.Contains(invalidEncodings[1]));
-            foreach (var item in items)
-            {
-                if (item.Headline.Contains(invalidEncodings[0]))
-                {
-                    item.Headline = item.Headline.Replace(invalidEncodings[0], "'");
-                }
-
-                if (item.Summary.Contains(invalidEncodings[1]))
-                {
-                    item.Summary = item.Summary.Replace(invalidEncodings[1], "'");
-                }
-            }
-        }
     }
 
     public override Content? FindById(long id)
     {
-        var result = this.Context.Contents
+        return this.Context.Contents
             .Include(c => c.ContentType)
             .Include(c => c.MediaType)
             .Include(c => c.Series)
@@ -165,9 +139,6 @@ public class ContentService : BaseService<Content, long>, IContentService
             .Include(c => c.FileReferences)
             .Include(c => c.Links)
             .FirstOrDefault(c => c.Id == id);
-
-        if (result != null) HandleInvalidEncoding(result);
-        return result;
     }
 
     public Content? FindByUid(string uid, string? source)
@@ -192,9 +163,7 @@ public class ContentService : BaseService<Content, long>, IContentService
         if (!String.IsNullOrWhiteSpace(source))
             query = query.Where(c => c.Source == source);
 
-        var result = query.FirstOrDefault();
-        if (result != null) HandleInvalidEncoding(result);
-        return result;
+        return query.FirstOrDefault();
     }
 
     public override Content Add(Content entity)
