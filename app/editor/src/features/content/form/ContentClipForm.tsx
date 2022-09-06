@@ -1,3 +1,4 @@
+import { Breadcrumb } from 'components/breadcrumb';
 import { Modal } from 'components/modal';
 import { useFormikContext } from 'formik';
 import { IFileReferenceModel, IFolderModel, IItemModel } from 'hooks/api-editor';
@@ -166,18 +167,10 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
     }
   };
 
-  const navigateUp = () => {
-    var path = folder.path.split('/').filter((v) => !!v);
-    if (path.length <= 1) setPath('/');
-    else setPath(path.slice(0, -1).join('/'));
-  };
-
   return (
     <styled.ContentClipForm>
       <div>
-        <Button className="navigate-up" onClick={() => navigateUp()} name="navigateUp">
-          Directory: {folder.path}
-        </Button>
+        <Breadcrumb path={folder.path} setPath={setPath} />
       </div>
       <Row>
         <Col flex="1 1 100%">
@@ -194,28 +187,26 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
         </Col>
       </Row>
       <div className={!streamUrl ? 'hidden' : ''}>
-        <Row>
-          <Col className="video" alignItems="stretch">
-            <video ref={videoRef} controls>
-              <source type="audio/m4a" />
-              <source type="audio/flac" />
-              <source type="audio/mp3" />
-              <source type="audio/mp4" />
-              <source type="audio/wav" />
-              <source type="audio/wma" />
-              <source type="audio/aac" />
-              <source type="video/wmv" />
-              <source type="video/mov" />
-              <source type="video/mpeg" />
-              <source type="video/mpg" />
-              <source type="video/avi" />
-              <source type="video/mp4" />
-              <source type="video/gif" />
-              HTML5 Video is required for this example
-            </video>
-          </Col>
+        <Row className="video" justifyContent="center">
+          <video ref={videoRef} controls>
+            <source type="audio/m4a" />
+            <source type="audio/flac" />
+            <source type="audio/mp3" />
+            <source type="audio/mp4" />
+            <source type="audio/wav" />
+            <source type="audio/wma" />
+            <source type="audio/aac" />
+            <source type="video/wmv" />
+            <source type="video/mov" />
+            <source type="video/mpeg" />
+            <source type="video/mpg" />
+            <source type="video/avi" />
+            <source type="video/mp4" />
+            <source type="video/gif" />
+            HTML5 Video is required for this example
+          </video>
         </Row>
-        <Row className="video-buttons">
+        <Row className="video-buttons" justifyContent="center">
           <Col>
             <p className="start-end">Start: {start}</p>
             <Button
