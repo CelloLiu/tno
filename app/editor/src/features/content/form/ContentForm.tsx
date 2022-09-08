@@ -22,14 +22,20 @@ import {
 import { ContentStatusName, ContentType, IContentModel, ValueType } from 'hooks/api-editor';
 import { useModal } from 'hooks/modal';
 import React from 'react';
-import { FaBars, FaChevronLeft, FaChevronRight, FaGripLines } from 'react-icons/fa';
+import { FaBars, FaChevronLeft, FaChevronRight, FaGripLines, FaSpinner } from 'react-icons/fa';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useContent, useLookup } from 'store/hooks';
 import { Button, ButtonVariant, Col, FieldSize, Row, Show, Tab, Tabs } from 'tno-core';
 
 import { ContentFormSchema } from '../validation';
-import { ContentActions, ContentClipForm, ContentSummaryForm, ContentTranscriptForm } from '.';
+import {
+  ContentActions,
+  ContentClipForm,
+  ContentLabelsForm,
+  ContentSummaryForm,
+  ContentTranscriptForm,
+} from '.';
 import { defaultFormValues } from './constants';
 import { IContentForm } from './interfaces';
 import * as styled from './styled';
@@ -50,7 +56,17 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
   const [{ dataSources, tonePools, series }, { getSeries }] = useLookup();
   const [
     { content: page },
-    { getContent, addContent, updateContent, deleteContent, upload, publishContent, attach },
+    {
+      getContent,
+      addContent,
+      updateContent,
+      deleteContent,
+      upload,
+      publishContent,
+      attach,
+      transcribe,
+      nlp,
+    },
   ] = useContent();
   const { isShowing, toggle } = useModal();
   const { userId } = useUserLookups();
@@ -70,13 +86,20 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
   const enablePrev = indexPosition > 0;
   const enableNext = indexPosition < (page?.items.length ?? 0) - 1;
 
-  React.useEffect(() => {
-    if (!!id && +id > 0) {
-      getContent(+id).then((data) => {
+  const fetchContent = React.useCallback(
+    (id: number) => {
+      getContent(id).then((data) => {
         setContent(toForm(data));
       });
+    },
+    [getContent],
+  );
+
+  React.useEffect(() => {
+    if (!!id && +id > 0) {
+      fetchContent(+id);
     }
-  }, [id, getContent]);
+  }, [id, fetchContent]);
 
   const handleSubmit = async (values: IContentForm) => {
     let contentResult: IContentModel | null = null;
@@ -128,6 +151,14 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
         if (!originalId) navigate(`/contents/${combined ? 'combined/' : ''}${contentResult.id}`);
       }
     }
+  };
+
+  const handleTranscribe = async (values: IContentForm) => {
+    await transcribe(toModel(values));
+  };
+
+  const handleNLP = async (values: IContentForm) => {
+    await nlp(toModel(values));
   };
 
   const handlePublish = async (values: IContentForm) => {
@@ -189,6 +220,15 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
                 disabled={!enableNext}
               >
                 <FaChevronRight />
+              </Button>
+              <Button
+                variant={ButtonVariant.secondary}
+                tooltip="Reload"
+                onClick={() => {
+                  fetchContent(content.id);
+                }}
+              >
+                <FaSpinner />
               </Button>
             </Show>
           </Row>
@@ -370,6 +410,11 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
                             onClick={() => setActive('clips')}
                             active={active === 'clips'}
                           />
+                          <Tab
+                            label="Labels"
+                            onClick={() => setActive('labels')}
+                            active={active === 'labels'}
+                          />
                         </>
                       }
                     >
@@ -385,6 +430,9 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
                       </Show>
                       <Show visible={active === 'clips'}>
                         <ContentClipForm content={content} setContent={setContent} />
+                      </Show>
+                      <Show visible={active === 'labels'}>
+                        <ContentLabelsForm />
                       </Show>
                     </Tabs>
                   </Show>
@@ -402,8 +450,26 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
                   </Button>
                   <Show visible={!!props.values.id}>
                     <Button
+                      onClick={() => handleTranscribe(props.values)}
+                      variant={ButtonVariant.action}
+                      disabled={
+                        props.isSubmitting ||
+                        !props.values.fileReferences.length ||
+                        !props.values.fileReferences[0].isUploaded
+                      }
+                    >
+                      Transcribe
+                    </Button>
+                    <Button
+                      onClick={() => handleNLP(props.values)}
+                      variant={ButtonVariant.action}
+                      disabled={props.isSubmitting}
+                    >
+                      NLP
+                    </Button>
+                    <Button
                       onClick={() => handlePublish(props.values)}
-                      variant={ButtonVariant.secondary}
+                      variant={ButtonVariant.success}
                       disabled={
                         props.isSubmitting ||
                         (props.values.status !== ContentStatusName.Publish &&
@@ -412,9 +478,11 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType = Content
                     >
                       Publish
                     </Button>
-                  </Show>
-                  <Show visible={!!props.values.id}>
-                    <Button onClick={toggle} variant={ButtonVariant.danger}>
+                    <Button
+                      onClick={toggle}
+                      variant={ButtonVariant.danger}
+                      disabled={props.isSubmitting}
+                    >
                       Delete
                     </Button>
                   </Show>

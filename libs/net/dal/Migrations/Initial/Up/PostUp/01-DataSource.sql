@@ -2,6 +2,8 @@ DO $$
 DECLARE DEFAULT_USER_ID UUID := '00000000-0000-0000-0000-000000000000';
 DECLARE CBC_CAPTURE_CODE VARCHAR(20) := 'CBCV-CAPTURE';
 DECLARE CBC_CLIP_CODE VARCHAR(20) := 'CBCV';
+DECLARE CASTANET VARCHAR(20) := 'CASTANET';
+DECLARE CPNEWS VARCHAR(20) := 'CPNEWS';
 BEGIN
 
 INSERT INTO public.data_source (
@@ -150,15 +152,19 @@ INSERT INTO public.data_source (
   , ''
 ), (
   'Castanet'
-  , 'CASTANET'
+  , CASTANET
   , ''
   , true -- is_enabled
   , 3 -- content_type_id
   , 1 -- media_type_id
   , 2 -- data_location_id
   , 3 -- license_id
-  , ''
-  , '{ "url":"https://www.castanet.net/rss/topheadlines.xml" }' -- connection
+  , CASTANET
+  , '{
+      "url":"https://www.castanet.net/rss/topheadlines.xml",
+      "timeZone": "Pacific Standard Time",
+      "import": true
+     }' -- connection
   , NULL -- parent_id
   , DEFAULT_USER_ID
   , ''
@@ -2869,16 +2875,21 @@ INSERT INTO public.data_source (
   , DEFAULT_USER_ID
   , ''
 ), (
-  'CP News'
-  , 'CPNEWS'
+  'Canadian Press Wire'
+  , CPNEWS
   , ''
   , true -- is_enabled
   , 3 -- content_type_id
   , 1 -- media_type_id
   , 2 -- data_location_id
   , 3 -- license_id
-  , ''
-  , '{ "url":"http://www.commandnews.com/fpweb/fp.dll/$bc-rss/htm/rss/x_searchlist.htm/_drawerid/!default_bc-rss/_profileid/rss/_iby/daj/_iby/daj/_svc/cp_pub/_k/XQkKHjnAUpumRfdr" }' -- connection
+  , CPNEWS
+  , '{ 
+    "url":"http://www.commandnews.com/fpweb/fp.dll/$bc-rss/htm/rss/x_searchlist.htm/_drawerid/!default_bc-rss/_profileid/rss/_iby/daj/_iby/daj/_svc/cp_pub/_k/XQkKHjnAUpumRfdr",
+    "timeZone": "Pacific Standard Time",
+    "fetchContent": true,
+    "import": true     
+    }' -- connection
   , NULL -- parent_id
   , DEFAULT_USER_ID
   , ''
@@ -3997,10 +4008,13 @@ INSERT INTO public.data_source (
 );
 
 IF EXISTS (SELECT id FROM public.data_source WHERE public.data_source.code = CBC_CAPTURE_CODE) THEN
-UPDATE public.data_source 
-SET parent_id = subquery.id 
+UPDATE public.data_source
+SET parent_id = subquery.id
 FROM (SELECT id FROM public.data_source WHERE public.data_source.code = CBC_CAPTURE_CODE) AS subquery
 WHERE public.data_source.code = CBC_CLIP_CODE;
 END IF;
+
+UPDATE public.data_source SET schedule_type = 1 where public.data_source.code = CASTANET;
+UPDATE public.data_source SET schedule_type = 1 where public.data_source.code = CPNEWS;
 
 END $$;

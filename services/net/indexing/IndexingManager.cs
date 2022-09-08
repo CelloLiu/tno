@@ -5,7 +5,7 @@ using TNO.Kafka;
 using TNO.Services.Managers;
 using TNO.Services.Indexing.Config;
 using TNO.API.Areas.Services.Models.Content;
-using TNO.Models.Kafka;
+using TNO.Kafka.Models;
 using Confluent.Kafka;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
@@ -49,23 +49,23 @@ public class IndexingManager : ServiceManager<IndexingOptions>
     /// Creates a new instance of a IndexingManager object, initializes with specified parameters.
     /// </summary>
     /// <param name="kafkaAdmin"></param>
-    /// <param name="kafkaListener"></param>
-    /// <param name="kafkaMessenger"></param>
+    /// <param name="consumer"></param>
+    /// <param name="producer"></param>
     /// <param name="api"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
     public IndexingManager(
         IKafkaAdmin kafkaAdmin,
-        IKafkaListener<string, IndexRequest> kafkaListener,
-        IKafkaMessenger kafkaMessenger,
+        IKafkaListener<string, IndexRequest> consumer,
+        IKafkaMessenger producer,
         IApiService api,
         IOptions<IndexingOptions> options,
         ILogger<IndexingManager> logger)
         : base(api, options, logger)
     {
         this.KafkaAdmin = kafkaAdmin;
-        this.Consumer = kafkaListener;
-        this.Producer = kafkaMessenger;
+        this.Consumer = consumer;
+        this.Producer = producer;
         this.Consumer.OnError += ConsumerErrorHandler;
 
         // TODO: Change to dependency injection.
@@ -78,7 +78,7 @@ public class IndexingManager : ServiceManager<IndexingOptions>
     #region Methods
     /// <summary>
     /// Continually polls for updated configuration.
-    /// Listends to Kafka topic(s) for content to send to Elasticsearch.
+    /// Listens to Kafka topic(s) for content to send to Elasticsearch.
     /// </summary>
     /// <returns></returns>
     public override async Task RunAsync()
@@ -102,17 +102,14 @@ public class IndexingManager : ServiceManager<IndexingOptions>
             {
                 try
                 {
-                    var topics = _options.GetTopics();
-
                     // Only include topics that exist.
+                    var topics = _options.GetTopics();
                     var kafkaTopics = this.KafkaAdmin.ListTopics();
                     topics = topics.Except(topics.Except(kafkaTopics)).ToArray();
 
                     if (topics.Length > 0)
                     {
                         if (!this.Consumer.IsReady) this.Consumer.Open();
-
-                        // TODO: Not sure if the consumer should stop before changing its subscription.
                         this.Consumer.Subscribe(topics);
 
                         // Create a new thread if the prior one isn't running anymore.

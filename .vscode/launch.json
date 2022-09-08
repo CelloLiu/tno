@@ -5,6 +5,23 @@
       // Use IntelliSense to find out which attributes exist for C# debugging
       // Use hover for the description of the existing attributes
       // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+      "name": "Run API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      // If you have changed target frameworks, make sure to update the program path.
+      "program": "${workspaceFolder}/api/net/bin/Debug/net6.0/TNO.API.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/api/net",
+      // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "envFile": "${workspaceFolder}/api/net/.env"
+    },
+    {
+      // Use IntelliSense to find out which attributes exist for C# debugging
+      // Use hover for the description of the existing attributes
+      // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
       "name": "Run Import Tool Service",
       "type": "coreclr",
       "request": "launch",
@@ -16,6 +33,23 @@
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
       "console": "internalConsole",
       "stopAtEntry": false
+    },
+    {
+      // Use IntelliSense to find out which attributes exist for C# debugging
+      // Use hover for the description of the existing attributes
+      // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+      "name": "Run Content Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-content",
+      // If you have changed target frameworks, make sure to update the program path.
+      "program": "${workspaceFolder}/services/net/content/bin/Debug/net6.0/TNO.Services.Content.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/net/content",
+      // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "envFile": "${workspaceFolder}/services/net/content/.env"
     },
     {
       // Use IntelliSense to find out which attributes exist for C# debugging
@@ -33,6 +67,40 @@
       "console": "internalConsole",
       "stopAtEntry": false,
       "envFile": "${workspaceFolder}/services/net/indexing/.env"
+    },
+    {
+      // Use IntelliSense to find out which attributes exist for C# debugging
+      // Use hover for the description of the existing attributes
+      // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+      "name": "Run Transcription Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-transcription",
+      // If you have changed target frameworks, make sure to update the program path.
+      "program": "${workspaceFolder}/services/net/transcription/bin/Debug/net6.0/TNO.Services.Transcription.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/net/transcription",
+      // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "envFile": "${workspaceFolder}/services/net/transcription/.env"
+    },
+    {
+      // Use IntelliSense to find out which attributes exist for C# debugging
+      // Use hover for the description of the existing attributes
+      // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+      "name": "Run NLP Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-nlp",
+      // If you have changed target frameworks, make sure to update the program path.
+      "program": "${workspaceFolder}/services/net/nlp/bin/Debug/net6.0/TNO.Services.NLP.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/net/nlp",
+      // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "envFile": "${workspaceFolder}/services/net/nlp/.env"
     },
     {
       "name": ".NET Core Attach",
