@@ -118,18 +118,6 @@ objects:
             mounts /zap/wrk to store generated configs and results.
 
       tasks:
-        - name: maintenance-on
-          taskRef:
-            name: oc-update-route
-            kind: Task
-          params:
-            - name: PROJECT_NAMESPACE
-              value: $(params.PROJECT_SHORTNAME)-$(params.DEPLOY_TO)
-            - name: ROUTE
-              value: ${APP_NAME}
-            - name: SERVICE
-              value: ${NGINX_NAME}
-
         # - name: database-backup
         #   taskRef:
         #     name: oc-backup
@@ -152,6 +140,50 @@ objects:
             - name: IMAGE_TAG
               value: $(params.IMAGE_TAG)
 
+        - name: build-api
+          runAfter:
+            - build-db-migration
+          taskRef:
+            name: oc-build
+            kind: Task
+          params:
+            - name: APP_NAME
+              value: ${API_NAME}
+            - name: GIT_SOURCE
+              value: $(params.GIT_SOURCE)
+            - name: IMAGE_TAG
+              value: $(params.IMAGE_TAG)
+
+        - name: build-app
+          runAfter:
+            - build-api
+          taskRef:
+            name: oc-build
+            kind: Task
+          params:
+            - name: APP_NAME
+              value: ${APP_NAME}
+            - name: GIT_SOURCE
+              value: $(params.GIT_SOURCE)
+            - name: IMAGE_TAG
+              value: $(params.IMAGE_TAG)
+
+        - name: maintenance-on
+          runAfter:
+            - build-db-migration
+            - build-api
+            - build-app
+          taskRef:
+            name: oc-update-route
+            kind: Task
+          params:
+            - name: PROJECT_NAMESPACE
+              value: $(params.PROJECT_SHORTNAME)-$(params.DEPLOY_TO)
+            - name: ROUTE
+              value: ${APP_NAME}
+            - name: SERVICE
+              value: ${NGINX_NAME}
+
         - name: run-db-migration
           runAfter:
             - maintenance-on
@@ -172,30 +204,6 @@ objects:
             - name: DEPLOY_TO
               value: $(params.DEPLOY_TO)
 
-        - name: build-api
-          taskRef:
-            name: oc-build
-            kind: Task
-          params:
-            - name: APP_NAME
-              value: ${API_NAME}
-            - name: GIT_SOURCE
-              value: $(params.GIT_SOURCE)
-            - name: IMAGE_TAG
-              value: $(params.IMAGE_TAG)
-
-        - name: build-app
-          taskRef:
-            name: oc-build
-            kind: Task
-          params:
-            - name: APP_NAME
-              value: ${APP_NAME}
-            - name: GIT_SOURCE
-              value: $(params.GIT_SOURCE)
-            - name: IMAGE_TAG
-              value: $(params.IMAGE_TAG)
-
         - name: deploy-api
           runAfter:
             - maintenance-on
@@ -215,7 +223,7 @@ objects:
         - name: deploy-app
           runAfter:
             - maintenance-on
-            - deploy-api
+            - run-db-migration
             - build-app
           taskRef:
             name: oc-deploy-with-tag
@@ -230,6 +238,8 @@ objects:
 
         - name: maintenance-off
           runAfter:
+            - run-db-migration
+            - deploy-api
             - deploy-app
           taskRef:
             name: oc-update-route
@@ -243,11 +253,11 @@ objects:
               value: ${APP_NAME}
 
         - name: owasp-scanner
-          conditions:
-            - conditionRef: param-has-value
-              params:
-                - name: VALUE
-                  value: $(params.WEB_APP_URL)
+          # conditions:
+          #   - conditionRef: param-has-value
+          #     params:
+          #       - name: VALUE
+          #         value: $(params.WEB_APP_URL)
           runAfter:
             - maintenance-off
           taskRef:

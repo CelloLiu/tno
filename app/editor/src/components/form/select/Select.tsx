@@ -1,6 +1,8 @@
+import { Error } from 'components/form';
 import React, { Ref } from 'react';
 import { ActionMeta, GroupBase, Props } from 'react-select';
 import ReactSelect from 'react-select/dist/declarations/src/Select';
+import ReactTooltip from 'react-tooltip';
 import { FieldSize } from 'tno-core';
 import { Row } from 'tno-core/dist/components/flex';
 
@@ -51,6 +53,8 @@ export interface ISelectProps<OptionType> extends SelectProps {
   ref?: Ref<ReactSelect<OptionType, boolean, GroupBase<OptionType>>>;
 }
 
+type TooltipRef = { tooltipRef: null } | null;
+
 /**
  * Select component provides a bootstrapped styled button element.
  * @param param0 Select element attributes.
@@ -79,7 +83,7 @@ export const Select = <OptionType extends IOptionItem>({
 }: ISelectProps<OptionType>) => {
   const selectRef = React.useRef(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
+  const tip = React.useRef(null);
   return (
     <styled.Select className="frm-in">
       {label && (
@@ -93,8 +97,13 @@ export const Select = <OptionType extends IOptionItem>({
             onClear?.();
           }
         }}
-        data-for="main-tooltip"
+        data-for="select-tooltip"
         data-tip={tooltip}
+        onClick={() => {
+          const current: TooltipRef = tip.current;
+          current!.tooltipRef = null;
+          ReactTooltip.hide();
+        }}
       >
         <styled.SelectField
           ref={selectRef}
@@ -146,7 +155,8 @@ export const Select = <OptionType extends IOptionItem>({
           }}
         />
       )}
-      {error && <p role="alert">{error}</p>}
+      <Error error={error} />
+      <ReactTooltip ref={tip} id="select-tooltip" effect="float" type="light" place="top" />
     </styled.Select>
   );
 };
