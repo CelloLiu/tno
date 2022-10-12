@@ -22,6 +22,8 @@ export interface IContentClipFormProps {
   setContent: (content: IContentForm) => void;
   /** The initial path to load */
   path?: string;
+  /** Pass the clip errors back to the content form */
+  setClipErrors: (errors: string) => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
   content,
   setContent,
   path: initPath,
+  setClipErrors,
 }) => {
   const { values, setFieldValue } = useFormikContext<IContentForm>();
   const { toggle, isShowing } = useModal();
@@ -64,6 +67,10 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
       });
     });
   }, [defaultPath, path, storageApi]);
+
+  React.useEffect(() => {
+    setClipErrors(error);
+  }, [error, setClipErrors]);
 
   React.useEffect(() => {
     if (!!streamUrl && !!videoRef.current) {
@@ -117,25 +124,33 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
       setError('Filename is a required field.');
     } else {
       setError('');
-      await storageApi.clip(`${folder.path}/${currFile}`, start, end, prefix).then((item) => {
-        setFolder({ ...folder, items: [...folder.items, item] });
-        setStart('');
-        setEnd('');
-      });
+      try {
+        await storageApi.clip(`${folder.path}/${currFile}`, start, end, prefix).then((item) => {
+          setFolder({ ...folder, items: [...folder.items, item] });
+          setStart('');
+          setEnd('');
+        });
+      } catch {
+        // Ignore error it's already handled.
+      }
     }
   };
 
   const joinClips = async () => {
-    await storageApi.join(`${folder.path}/${currFile}`, prefix).then((item) => {
-      setItem(item);
-      setFolder({ ...folder, items: [...folder.items, item] });
-      setStart('');
-      setEnd('');
-      setCurrFile(!!item ? item.name : '');
-      setStreamUrl(
-        !!item ? `/api/editor/storage/stream?path=${folder.path}/${item.name}` : undefined,
-      );
-    });
+    try {
+      await storageApi.join(`${folder.path}/${currFile}`, prefix).then((item) => {
+        setItem(item);
+        setFolder({ ...folder, items: [...folder.items, item] });
+        setStart('');
+        setEnd('');
+        setCurrFile(!!item ? item.name : '');
+        setStreamUrl(
+          !!item ? `/api/editor/storage/stream?path=${folder.path}/${item.name}` : undefined,
+        );
+      });
+    } catch {
+      // Ignore error it's already handled.
+    }
   };
 
   const getTime = () => {
@@ -196,20 +211,22 @@ export const ContentClipForm: React.FC<IContentClipFormProps> = ({
         <Col className="video">
           <Row>
             <video ref={videoRef} controls>
-              <source type="audio/m4a" />
-              <source type="audio/flac" />
-              <source type="audio/mp3" />
-              <source type="audio/mp4" />
-              <source type="audio/wav" />
-              <source type="audio/wma" />
-              <source type="audio/aac" />
-              <source type="video/wmv" />
-              <source type="video/mov" />
-              <source type="video/mpeg" />
-              <source type="video/mpg" />
-              <source type="video/avi" />
-              <source type="video/mp4" />
-              <source type="video/gif" />
+              <source src={streamUrl} type="audio/m4a" />
+              <source src={streamUrl} type="audio/flac" />
+              <source src={streamUrl} type="audio/mp3" />
+              <source src={streamUrl} type="audio/mp4" />
+              <source src={streamUrl} type="audio/wav" />
+              <source src={streamUrl} type="audio/wma" />
+              <source src={streamUrl} type="audio/aac" />
+              <source src={streamUrl} type="video/wmv" />
+              <source src={streamUrl} type="video/mov" />
+              <source src={streamUrl} type="video/mpeg" />
+              <source src={streamUrl} type="video/mpg" />
+              <source src={streamUrl} type="video/avi" />
+              <source src={streamUrl} type="video/mp4" />
+              <source src={streamUrl} type="video/gif" />
+              <source src={streamUrl} type="video/ogg" />
+              <source src={streamUrl} type="video/webm" />
               HTML5 Video is required for this example
             </video>
           </Row>

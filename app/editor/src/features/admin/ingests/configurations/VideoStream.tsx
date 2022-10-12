@@ -21,7 +21,7 @@ export const VideoStream: React.FC = (props) => {
   const language = Languages.find((t) => t.value === values.configuration.language);
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikText
         label="Stream URL"
         name="configuration.url"
@@ -33,13 +33,13 @@ export const VideoStream: React.FC = (props) => {
         name="configuration.timeZone"
         tooltip="Timezone of the source"
         options={TimeZones}
-        defaultValue={timeZone}
+        value={timeZone}
       />
       <FormikSelect
         label="Language"
         name="configuration.language"
         options={Languages}
-        defaultValue={language}
+        value={language}
       />
       <FormikText
         label="Format"
@@ -47,6 +47,7 @@ export const VideoStream: React.FC = (props) => {
         tooltip="Format of the stream"
         placeholder="mp4"
       />
+      <p>Use "{'{schedule.Name}'}.mp4" to name the file with the schedule name.</p>
       <FormikText
         label="File Name"
         name="configuration.fileName"
@@ -69,6 +70,6 @@ export const VideoStream: React.FC = (props) => {
         name="configuration.otherArgs"
         tooltip="Any other arguments to pass to the command"
       />
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

@@ -5,6 +5,7 @@ import { ISelectDateProps, SelectDateVariant } from '..';
 export const SelectDate = styled.div<ISelectDateProps>`
   box-sizing: border-box;
   padding-right: 0.5em;
+  width: ${(props) => props.width};
 
   .required:after {
     content: ' *';
@@ -12,15 +13,18 @@ export const SelectDate = styled.div<ISelectDateProps>`
     font-weight: 700;
   }
 
-  .react-datepicker-wrapper {
-    min-width: 12ch;
+  p[role='alert'] {
+    font-weight: 0.85em;
+    color: ${(props) => props.theme.css.dangerColor};
+  }
 
+  .react-datepicker-wrapper {
     input {
       padding: 0.375rem 0.75rem;
       text-decoration: ${(props) =>
         props.variant === SelectDateVariant.link ? 'underline' : 'none'};
       display: flex;
-      width: ${(props) => props.width};
+      width: ${(props) => `calc(${props.width} - 1.5rem - 0.5em)`};
       flex-direction: column;
       font-weight: 400;
       text-align: left;
@@ -46,26 +50,8 @@ export const SelectDate = styled.div<ISelectDateProps>`
         }
       }};
 
-      background-color: ${(props) => {
-        switch (props.variant) {
-          case SelectDateVariant.primary:
-            return props.theme.css.inputBackgroundColor;
-          case SelectDateVariant.secondary:
-            return '#6c757d';
-          case SelectDateVariant.success:
-            return '#43893e';
-          case SelectDateVariant.info:
-            return '#96c0e6';
-          case SelectDateVariant.warning:
-            return '#f9ca54';
-          case SelectDateVariant.danger:
-            return '#d93e45';
-          case SelectDateVariant.link:
-            return 'transparent';
-          default:
-            return '#38598a';
-        }
-      }};
+      background-color: ${(props) => !!props.error && '#e19596'};
+
       border-color: ${(props) => {
         switch (props.variant) {
           case SelectDateVariant.primary:
@@ -77,7 +63,7 @@ export const SelectDate = styled.div<ISelectDateProps>`
           case SelectDateVariant.info:
             return '#96c0e6';
           case SelectDateVariant.warning:
-            return '#f9ca54';
+            return '#574040';
           case SelectDateVariant.danger:
             return '#d93e45';
           case SelectDateVariant.link:

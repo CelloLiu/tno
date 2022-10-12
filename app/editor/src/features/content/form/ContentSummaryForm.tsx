@@ -3,16 +3,16 @@ import { FormikRadioGroup, FormikSelect, FormikText, FormikTextArea } from 'comp
 import { FormikDatePicker } from 'components/formik/datepicker';
 import { Modal } from 'components/modal/Modal';
 import { IFile, Upload } from 'components/upload';
-import { useFormikContext } from 'formik';
+import { getIn, useFormikContext } from 'formik';
 import { useCombinedView } from 'hooks';
 import { ContentTypeName, IUserModel } from 'hooks/api-editor';
 import { useModal } from 'hooks/modal';
 import moment from 'moment';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { useContent, useLookup } from 'store/hooks';
-import { Button, ButtonVariant, FieldSize, Show, useKeycloakWrapper } from 'tno-core';
-import { Col } from 'tno-core/dist/components/flex/col';
-import { Row } from 'tno-core/dist/components/flex/row';
+import { Button, ButtonVariant, Col, FieldSize, Row, Show, useKeycloakWrapper } from 'tno-core';
 import { getSortableOptions } from 'utils';
 
 import { toningOptions } from './constants';
@@ -26,6 +26,7 @@ export interface IContentSummaryFormProps {
   setContent: (content: IContentForm) => void;
   content: IContentForm;
   contentType: ContentTypeName;
+  savePressed?: boolean;
 }
 
 /**
@@ -37,45 +38,54 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
   setContent,
   content,
   contentType,
+  savePressed,
 }) => {
   const keycloak = useKeycloakWrapper();
   const [{ series, categories, licenses, tags, users }] = useLookup();
-  const { values, setFieldValue, handleChange } = useFormikContext<IContentForm>();
+  const { values, setFieldValue, errors } = useFormikContext<IContentForm>();
   const { isShowing, toggle } = useModal();
   const [, { download }] = useContent();
   const combined = useCombinedView();
+  const navigate = useNavigate();
 
   const [categoryOptions, setCategoryOptions] = React.useState<IOptionItem[]>([]);
   const [seriesOptions, setSeriesOptions] = React.useState<IOptionItem[]>([]);
   const [licenseOptions, setLicenseOptions] = React.useState<IOptionItem[]>([]);
   const [effort, setEffort] = React.useState(0);
-  const [publishedOnTime, setPublishedOnTime] = React.useState<string>();
 
   const userId = users.find((u: IUserModel) => u.username === keycloak.getUsername())?.id;
 
-  const path = values.fileReferences.length ? values.fileReferences[0].path : undefined;
-  const file = values.fileReferences.length
+  const fileReference = values.fileReferences.length ? values.fileReferences[0] : undefined;
+  const path = fileReference?.path;
+  const file = !!fileReference
     ? ({
-        name: values.fileReferences[0].fileName,
-        size: values.fileReferences[0].size,
+        name: fileReference.fileName,
+        size: fileReference.size,
       } as IFile)
     : undefined;
   const [streamUrl, setStreamUrl] = React.useState<string>('');
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   React.useEffect(() => {
+    // This should never occur, but if keycloak is not configured correctly, or the local storage is missing their account it can.
+    if (!userId) {
+      toast.error(
+        'Your user account is missing.  Try refreshing your page.  If the issue persists contact support.',
+      );
+      navigate('/error');
+    }
+  }, [navigate, userId]);
+
+  React.useEffect(() => {
     setEffort(getTotalTime(values.timeTrackings));
   }, [values.timeTrackings]);
 
   React.useEffect(() => {
-    const date = new Date(values.publishedOn);
-    const hours = publishedOnTime?.split(':');
-    if (!!hours && !publishedOnTime?.includes('_') && publishedOnTime !== '') {
-      date.setHours(Number(hours[0]), Number(hours[1]), Number(hours[2]));
-      setPublishedOnTime('');
-      setFieldValue('publishedOn', date);
-    }
-  }, [publishedOnTime, setFieldValue, values.publishedOn]);
+    setFieldValue(
+      'publishedOnTime',
+      !!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : '',
+    );
+  }, [setFieldValue, values.publishedOn]);
 
   React.useEffect(() => {
     setCategoryOptions(getSortableOptions(categories));
@@ -105,119 +115,127 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
     setStreamUrl(!!streamUrl ? '' : `/api/editor/contents/upload/stream?path=${path}`);
   };
 
+  const toningError = getIn(errors, 'tone');
+
   return (
-    <styled.ContentSummaryForm>
-      <Col className="content-properties">
-        <Row>
-          <Col>
-            <Show visible={contentType === ContentTypeName.Snippet}>
-              <Row>
-                <FormikSelect
-                  name="seriesId"
-                  label="Series"
-                  width={FieldSize.Medium}
-                  value={seriesOptions.find((s: any) => s.value === values.seriesId) ?? ''}
-                  options={seriesOptions}
-                  isDisabled={!!values.otherSeries}
-                  onChange={(e) => {
-                    setFieldValue('otherSeries', '');
-                  }}
-                />
-                <FormikText
-                  name="otherSeries"
-                  label="Other Series"
-                  width={FieldSize.Medium}
-                  onChange={(e) => {
-                    const value = e.currentTarget.value;
-                    setFieldValue('otherSeries', value);
-                    if (!!value) setFieldValue('seriesId', undefined);
-                  }}
-                  onBlur={() => {
-                    const found = series.find(
-                      (s) => s.name.toLocaleLowerCase() === values.otherSeries.toLocaleLowerCase(),
-                    );
-                    if (!!found) {
-                      setFieldValue('seriesId', found.id);
-                      setFieldValue('otherSeries', '');
-                    }
-                  }}
-                />
-              </Row>
-            </Show>
-            <Row alignContent="flex-start" alignItems="flex-start">
-              <FormikSelect
-                name="categories"
-                label="Event of Day Category"
-                width={FieldSize.Medium}
-                options={categoryOptions}
-                clearValue={[]}
-                value={
-                  values.categories.length
-                    ? categoryOptions.find((c) => c.value === values.categories[0].id) ?? []
-                    : []
+    <styled.ContentSummaryForm className="content-properties">
+      <Row>
+        <Col>
+          <Row>
+            <FormikSelect
+              name="seriesId"
+              label="Series"
+              width={FieldSize.Medium}
+              value={seriesOptions.find((s: any) => s.value === values.seriesId) ?? ''}
+              options={seriesOptions}
+              isDisabled={!!values.otherSeries}
+              onChange={(e) => {
+                setFieldValue('otherSeries', '');
+              }}
+            />
+            <FormikText
+              name="otherSeries"
+              label="Other Series"
+              width={FieldSize.Medium}
+              onChange={(e) => {
+                const value = e.currentTarget.value;
+                setFieldValue('otherSeries', value);
+                if (!!value) setFieldValue('seriesId', undefined);
+              }}
+              onBlur={() => {
+                const found = series.find(
+                  (s) => s.name.toLocaleLowerCase() === values.otherSeries.toLocaleLowerCase(),
+                );
+                if (!!found) {
+                  setFieldValue('seriesId', found.id);
+                  setFieldValue('otherSeries', '');
                 }
-                onChange={(e: any) => {
-                  // only supports one at a time right now
-                  const value = categories.find((c) => c.id === e.value);
-                  setFieldValue('categories', !!value ? [value] : []);
-                }}
-              />
-              <FormikText
-                name="categories[0].score"
-                label="Score"
-                type="number"
-                width={FieldSize.Medium}
-                disabled={!values.categories.length}
-              />
-            </Row>
-            <Row>
-              <FormikDatePicker
-                name="publishedOn"
-                label="Published On"
-                required
-                autoComplete="false"
-                width={FieldSize.Medium}
-                selectedDate={
-                  !!values.publishedOn ? moment(values.publishedOn).toString() : undefined
+              }}
+            />
+          </Row>
+          <Row alignContent="flex-start" alignItems="flex-start">
+            <FormikSelect
+              name="categories"
+              label="Event of Day Category"
+              width={FieldSize.Medium}
+              options={categoryOptions}
+              clearValue={[]}
+              value={
+                values.categories.length
+                  ? categoryOptions.find((c) => c.value === values.categories[0].id) ?? []
+                  : []
+              }
+              onChange={(e: any) => {
+                // only supports one at a time right now
+                const value = categories.find((c) => c.id === e.value);
+                setFieldValue('categories', !!value ? [value] : []);
+              }}
+            />
+            <FormikText
+              name="categories[0].score"
+              label="Score"
+              type="number"
+              width={FieldSize.Medium}
+              disabled={!values.categories.length}
+            />
+          </Row>
+          <Row alignContent="flex-start" alignItems="flex-start">
+            <FormikDatePicker
+              name="publishedOn"
+              label="Published On"
+              required
+              autoComplete="false"
+              width={FieldSize.Medium}
+              selectedDate={
+                !!values.publishedOn ? moment(values.publishedOn).toString() : undefined
+              }
+              value={
+                !!values.publishedOn
+                  ? moment(values.publishedOn).format('MMM D, yyyy HH:mm:ss')
+                  : ''
+              }
+              onChange={(date: any) => {
+                setFieldValue('publishedOn', date);
+              }}
+            />
+            <TimeInput
+              name="publishedOnTime"
+              label="Time"
+              disabled={!values.publishedOn}
+              width="7em"
+              value={!!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : ''}
+              placeholder={
+                !!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : 'HH:MM:SS'
+              }
+              onChange={(e) => {
+                const date = new Date(values.publishedOn);
+                const hours = e.target.value?.split(':');
+                if (
+                  !!hours &&
+                  !values.publishedOnTime?.includes('_') &&
+                  values.publishedOnTime !== ''
+                ) {
+                  date.setHours(Number(hours[0]), Number(hours[1]), Number(hours[2]));
+                  setFieldValue('publishedOn', date.toISOString());
                 }
-                value={
-                  !!values.publishedOn
-                    ? moment(values.publishedOn).format('MMMM D, yyyy HH:mm:ss')
-                    : ''
-                }
-                onChange={(date: any) => {
-                  setFieldValue('publishedOn', date);
-                }}
-              />
-              <TimeInput
-                name="publishedOnTime"
-                disabled={!values.publishedOn}
-                placeholder={
-                  !!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : 'HH:MM:SS'
-                }
-                label="Time"
-                onChange={(e) => setPublishedOnTime(e.target.value)}
-              />
-              <Show visible={contentType === ContentTypeName.Snippet}>
-                <FormikText name="page" label="Page" onChange={handleChange} />
-              </Show>
-            </Row>
-          </Col>
+              }}
+            />
+          </Row>
+        </Col>
+        <Col className="licenses">
+          <RadioGroup
+            name="expireOptions"
+            label="License"
+            spaceUnderRadio
+            options={licenseOptions}
+            value={licenseOptions.find((e) => e.value === values?.licenseId)}
+            onChange={(e) => setFieldValue('licenseId', Number(e.target.value))}
+          />
+        </Col>
+      </Row>
+      <Row className="textarea">
+        <Col flex="1 1 0">
           <Show visible={contentType === ContentTypeName.Snippet}>
-            <Col className="licenses">
-              <RadioGroup
-                label="License"
-                spaceUnderRadio
-                name="expireOptions"
-                options={licenseOptions}
-                value={licenseOptions.find((e) => e.value === values?.licenseId)}
-                onChange={(e) => setFieldValue('licenseId', Number(e.target.value))}
-              />
-            </Col>
-          </Show>
-        </Row>
-        <Row>
-          <Col flex="1 1 0">
             <FormikTextArea
               name="summary"
               label="Summary"
@@ -231,70 +249,82 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 }
               }}
             />
-          </Col>
-        </Row>
-        <Show visible={contentType !== ContentTypeName.Snippet}>
-          <Row>
-            <Col flex="1 1 0">
-              <FormikTextArea name="body" label="Story" />
-            </Col>
-          </Row>
-        </Show>
-        <Row>
-          <FormikText
-            disabled
-            width={combined ? FieldSize.Big : FieldSize.Large}
-            name="tags"
-            label="Tags"
-            value={values.tags.map((t) => t.id).join(', ')}
-          />
-          <Button
-            variant={ButtonVariant.danger}
-            className="top-spacer"
-            onClick={() => {
-              const regex = /\[.*\]/; // TODO: This is far too eager and could remove valuable content.
-              setFieldValue('summary', values.summary.replace(regex, ''));
-              setFieldValue('tags', []);
-            }}
-          >
-            Clear Tags
-          </Button>
-        </Row>
-        <Row className="row-margins">
-          <FormikRadioGroup
-            label="Toning"
-            direction="row"
-            name="tonePool"
-            required
-            options={toningOptions}
-            onChange={(e, value) => {
-              setFieldValue('tonePool', value);
-              setFieldValue('tone', value?.value);
-            }}
-          />
-        </Row>
-        <Show visible={contentType === ContentTypeName.Snippet}>
-          <Row className="row-margins">
-            <Upload
-              id="upload"
-              name="file"
-              file={file}
-              onSelect={(e) => {
-                const file = !!e.target?.files?.length ? e.target.files[0] : undefined;
-                setFieldValue('file', file);
-                // Remove file reference.
-                setFieldValue('fileReferences', []);
-              }}
-              onDownload={() => {
-                download(values.id, file?.name ?? `${values.otherSource}-${values.id}`);
-              }}
-              onDelete={() => {
-                setStreamUrl('');
-                if (!!videoRef.current) {
-                  videoRef.current.src = '';
+          </Show>
+          <Show visible={contentType !== ContentTypeName.Snippet}>
+            <FormikTextArea
+              name="body"
+              label="Story"
+              required
+              onBlur={(e) => {
+                const value = e.currentTarget.value;
+                if (!!value) {
+                  const values = value.match(tagMatch)?.toString()?.split(', ') ?? [];
+                  const tags = extractTags(values);
+                  setFieldValue('tags', tags);
                 }
               }}
             />
+          </Show>
+        </Col>
+      </Row>
+      <Row>
+        <FormikText
+          name="tags"
+          label="Tags"
+          disabled
+          width={combined ? FieldSize.Big : FieldSize.Large}
+          value={values.tags.map((t) => t.id).join(', ')}
+        />
+        <Button
+          variant={ButtonVariant.danger}
+          className="top-spacer"
+          onClick={() => {
+            const regex = /\[.*\]/; // TODO: This is far too eager and could remove valuable content.
+            setFieldValue('summary', values.summary.replace(regex, ''));
+            setFieldValue('tags', []);
+          }}
+        >
+          Clear Tags
+        </Button>
+      </Row>
+      <Row className="row-margins">
+        <FormikRadioGroup
+          label="Toning"
+          direction="row"
+          error={savePressed && toningError}
+          name="tonePool"
+          required
+          options={toningOptions}
+          onChange={(e, value) => {
+            setFieldValue('tonePool', value);
+            setFieldValue('tone', value?.value);
+          }}
+        />
+      </Row>
+      <Show visible={contentType === ContentTypeName.Snippet}>
+        <Row className="row-margins">
+          <Upload
+            id="upload"
+            name="file"
+            file={file}
+            downloadable={fileReference?.isUploaded}
+            onSelect={(e) => {
+              const file = !!e.target?.files?.length ? e.target.files[0] : undefined;
+              setFieldValue('file', file);
+              // Remove file reference.
+              setFieldValue('fileReferences', []);
+            }}
+            onDownload={() => {
+              download(values.id, file?.name ?? `${values.otherSource}-${values.id}`);
+            }}
+            onDelete={() => {
+              setStreamUrl('');
+              if (!!videoRef.current) {
+                videoRef.current.src = '';
+              }
+            }}
+          />
+          <Show visible={fileReference?.isUploaded ?? false}>
             <Button
               onClick={() => {
                 setMedia();
@@ -304,71 +334,65 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
             >
               {!!streamUrl ? 'Hide Player' : 'Show Player'}
             </Button>
-          </Row>
-          <Col className="video" alignItems="stretch">
-            <video ref={videoRef} className={!streamUrl ? 'hidden' : ''} controls>
-              HTML5 Video is required for this example
-            </video>
-          </Col>
-          <Row className="row-margins">
-            <FormikText className="sm" name="prep" label="Prep Time (minutes)" type="number" />
-            <Button
-              className="top-spacer add-time"
-              variant={ButtonVariant.secondary}
-              disabled={isNaN((values as any).prep)}
-              onClick={() => {
-                setEffort(effort!! + Number((values as any).prep));
-                setFieldValue('timeTrackings', [
-                  ...values.timeTrackings,
-                  {
-                    userId: userId ?? 0,
-                    activity: !!values.id ? 'Updated' : 'Created',
-                    effort: (values as any).prep,
-                    createdOn: new Date(),
-                  },
-                ]);
-                setFieldValue('prep', '');
-              }}
-            >
-              Add
-            </Button>
-            <FormikText
-              disabled
-              className="sm"
-              name="total"
-              label="Total"
-              value={effort?.toString()}
+          </Show>
+        </Row>
+        <Col className="video" alignItems="stretch">
+          <video ref={videoRef} className={!streamUrl ? 'hidden' : ''} controls>
+            HTML5 Video is required for this example
+          </video>
+        </Col>
+      </Show>
+      <Row className="row-margins">
+        <FormikText className="sm" name="prep" label="Prep Time (minutes)" type="number" />
+        <Button
+          className="top-spacer add-time"
+          variant={ButtonVariant.secondary}
+          disabled={isNaN((values as any).prep)}
+          onClick={() => {
+            setEffort(effort!! + Number((values as any).prep));
+            setFieldValue('timeTrackings', [
+              ...values.timeTrackings,
+              {
+                userId: userId,
+                activity: !!values.id ? 'Updated' : 'Created',
+                effort: (values as any).prep,
+                createdOn: new Date(),
+              },
+            ]);
+            setFieldValue('prep', '');
+          }}
+        >
+          Add
+        </Button>
+        <FormikText disabled className="sm" name="total" label="Total" value={effort?.toString()} />
+        <Button
+          onClick={() => {
+            setContent({ ...content, timeTrackings: values.timeTrackings });
+            toggle();
+          }}
+          className="top-spacer"
+          variant={ButtonVariant.secondary}
+        >
+          View Log
+        </Button>
+        <Modal
+          hide={toggle}
+          isShowing={isShowing}
+          headerText="Prep Time Log"
+          body={
+            <TimeLogTable
+              setTotalEffort={setEffort}
+              totalEffort={effort}
+              data={values.timeTrackings}
             />
-            <Button
-              onClick={() => {
-                setContent({ ...content, timeTrackings: values.timeTrackings });
-                toggle();
-              }}
-              className="top-spacer"
-              variant={ButtonVariant.secondary}
-            >
-              View Log
+          }
+          customButtons={
+            <Button variant={ButtonVariant.secondary} onClick={toggle}>
+              Close
             </Button>
-            <Modal
-              hide={toggle}
-              isShowing={isShowing}
-              headerText="Prep Time Log"
-              body={
-                <TimeLogTable
-                  setTotalEffort={setEffort}
-                  totalEffort={effort}
-                  data={values.timeTrackings}
-                />
-              }
-              customButtons={
-                <Button variant={ButtonVariant.secondary} onClick={toggle}>
-                  Close
-                </Button>
-              }
-            />
-          </Row>
-        </Show>
-      </Col>
+          }
+        />
+      </Row>
     </styled.ContentSummaryForm>
   );
 };

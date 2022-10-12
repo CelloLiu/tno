@@ -9,17 +9,23 @@ import { ServiceTypes } from './constants';
 import * as styled from './styled';
 
 export const Audio: React.FC = (props) => {
-  const { values } = useFormikContext<IIngestModel>();
+  const { values, setFieldValue } = useFormikContext<IIngestModel>();
 
   const serviceType = ServiceTypes.find((t) => t.value === values.configuration.serviceType);
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikSelect
         label="Service Type"
         name="configuration.serviceType"
         options={ServiceTypes}
         value={serviceType}
+        onChange={(newValue: any) => {
+          // If an audio ingest, set the configuration other args.
+          if (values.id === 0 && !values.configuration.otherArgs && newValue.value === 'stream') {
+            setFieldValue('configuration.otherArgs', '-acodec mp3 -ab 257k');
+          }
+        }}
       />
       <Show visible={values.configuration.serviceType === 'stream'}>
         <AudioStream />
@@ -30,6 +36,6 @@ export const Audio: React.FC = (props) => {
       <Show visible={values.configuration.serviceType === 'tuner'}>
         <AudioTuner />
       </Show>
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

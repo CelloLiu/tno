@@ -1,5 +1,6 @@
 import { OptionItem } from 'components/form';
 import { IContentModel } from 'hooks/api-editor';
+import moment from 'moment';
 
 import { IContentForm } from '../interfaces';
 
@@ -30,7 +31,8 @@ export function toForm(model: IContentModel): IContentForm {
     ownerId: model.ownerId ?? '',
     seriesId: model.seriesId,
     otherSeries: '',
-    publishedOn: model.publishedOn?.toString() ?? '',
+    publishedOn: model.publishedOn ?? '',
+    publishedOnTime: !!model.publishedOn ? moment(model.publishedOn).format('HH:mm:ss') : '',
     actions: model.actions ?? [],
     categories: model.categories ?? [],
     tags: model.tags ?? [],
@@ -46,7 +48,6 @@ export function toForm(model: IContentModel): IContentForm {
     // Print Content
     section: model.printContent?.section ?? '',
     edition: model.printContent?.edition ?? '',
-    storyType: model.printContent?.storyType ?? '',
     byline: model.printContent?.byline ?? '',
     version: model.version,
   };

@@ -9,6 +9,7 @@ using TNO.Models.Extensions;
 using TNO.Kafka.Models;
 using TNO.Services.Capture.Config;
 using TNO.Services.Command;
+using System.Diagnostics;
 
 namespace TNO.Services.Capture;
 
@@ -90,18 +91,24 @@ public class CaptureAction : CommandAction<CaptureOptions>
 
                 if (reference != null)
                 {
-                    if (manager.Ingest.PostToKafka())
-                    {
-                        var messageResult = await SendMessageAsync(process, manager.Ingest, schedule, reference);
-                        reference.Partition = messageResult.Partition;
-                        reference.Offset = messageResult.Offset;
-                    }
-
-                    // Assuming some success at this point, even though a stop command can be called for different reasons.
-                    reference.Status = (int)WorkflowStatus.Received;
-                    await this.Api.UpdateContentReferenceAsync(reference);
+                    var messageResult = manager.Ingest.PostToKafka() ? await SendMessageAsync(process, manager.Ingest, schedule, reference) : null;
+                    await UpdateContentReferenceAsync(reference, messageResult);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// FFMPEG sends all logs to the error output.  There isn't a way to tell the difference regrettably.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="manager"></param>
+    /// <param name="e"></param>
+    protected override void OnErrorReceived(object? sender, IIngestServiceActionManager? manager, DataReceivedEventArgs e)
+    {
+        if (!String.IsNullOrWhiteSpace(e.Data))
+        {
+            this.Logger.LogInformation("{data}", e.Data);
         }
     }
 
@@ -137,11 +144,12 @@ public class CaptureAction : CommandAction<CaptureOptions>
     {
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
         var file = (string)process.Data["filename"];
-        var contentType = ingest.MediaType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing media content type.");
-        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, ingest.DestinationConnectionId, reference.Uid, $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}", "", "", publishedOn.ToUniversalTime())
+        var path = file.Replace(this.Options.VolumePath, "");
+        var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
+        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, reference.Uid, $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}", "", "", publishedOn.ToUniversalTime())
         {
             StreamUrl = ingest.GetConfigurationValue("url") ?? "",
-            FilePath = Path.Combine(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", file?.MakeRelativePath() ?? ""),
+            FilePath = path?.MakeRelativePath() ?? "",
             Language = ingest.GetConfigurationValue("language") ?? ""
         };
         var result = await this.Producer.SendMessageAsync(reference.Topic, content);
@@ -156,14 +164,14 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// <returns></returns>
     private async Task<bool> IsVideoAsync(string file)
     {
-        var process = new System.Diagnostics.Process();
+        var process = new Process();
         process.StartInfo.Verb = $"Stream Type";
         process.StartInfo.FileName = "/bin/sh";
         process.StartInfo.Arguments = $"-c \"ffmpeg -i {file} 2>&1 | grep Video | awk '{{print $0}}' | tr -d ,\"";
         process.StartInfo.UseShellExecute = false;
-        process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.CreateNoWindow = true;
-        process.ErrorDataReceived += OnError;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.EnableRaisingEvents = true;
         process.Start();
 
         var output = await process.StandardOutput.ReadToEndAsync();
@@ -177,15 +185,18 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// <param name="ingest"></param>
     /// <param name="schedule"></param>
     /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     private ContentReferenceModel CreateContentReference(IngestModel ingest, ScheduleModel schedule)
     {
-        var today = GetLocalDateTime(ingest, DateTime.UtcNow);
-        var publishedOn = new DateTime(today.Year, today.Month, today.Day, 0, 0, 0, DateTimeKind.Local) + schedule.StartAt;
+        var today = GetDateTimeForTimeZone(ingest);
+        var publishedOn = new DateTime(today.Year, today.Month, today.Day, 0, 0, 0, today.Kind);
+        if (schedule.StartAt.HasValue)
+            publishedOn = publishedOn.Add(schedule.StartAt.Value);
         return new ContentReferenceModel()
         {
             Source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing source code."),
             Uid = $"{schedule.Name}:{schedule.Id}-{publishedOn:yyyy-MM-dd-hh-mm-ss}",
-            PublishedOn = publishedOn?.ToUniversalTime(),
+            PublishedOn = this.ToTimeZone(publishedOn, ingest).ToUniversalTime(),
             Topic = ingest.Topic,
             Status = (int)WorkflowStatus.InProgress
         };
@@ -217,7 +228,7 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// <returns></returns>
     protected string GetOutputPath(IngestModel ingest)
     {
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetLocalDateTime(ingest, DateTime.Now):yyyy-MM-dd}");
+        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
     }
 
     /// <summary>
@@ -230,7 +241,7 @@ public class CaptureAction : CommandAction<CaptureOptions>
     {
         var value = ingest.GetConfigurationValue("url");
         var options = new UriCreationOptions();
-        if (!Uri.TryCreate(value, options, out Uri? uri)) throw new InvalidOperationException("Data source connection 'url' is not a valid format.");
+        if (!Uri.TryCreate(value, options, out Uri? uri)) throw new InvalidOperationException("Ingest connection 'url' is not a valid format.");
         return $"-i {uri.ToString().Replace(" ", "+")}";
     }
 
@@ -241,7 +252,6 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// <param name="ingest"></param>
     /// <param name="schedule"></param>
     /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
     private string GetOutput(IngestModel ingest, ScheduleModel schedule)
     {
         string filename;
@@ -257,7 +267,7 @@ public class CaptureAction : CommandAction<CaptureOptions>
         {
             // Streams that do not generate content will prepend the created time.
             // This should be the time for the timezone configured for the schedule.
-            var now = GetLocalDateTime(ingest, DateTime.UtcNow);
+            var now = GetDateTimeForTimeZone(ingest);
             filename = $"{now.Hour:00}-{now.Minute:00}-{now.Second:00}-{(String.IsNullOrWhiteSpace(configuredName) ? $"{schedule.Name}.mp3" : configuredName.Replace("{schedule.Name}", schedule.Name))}";
         }
 
@@ -275,7 +285,6 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// </summary>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
     private static string GetFormat(IngestModel ingest)
     {
         var value = ingest.GetConfigurationValue("format");
@@ -287,7 +296,6 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// </summary>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
     private static string GetVolume(IngestModel ingest)
     {
         var value = ingest.GetConfigurationValue("volume");
@@ -299,7 +307,6 @@ public class CaptureAction : CommandAction<CaptureOptions>
     /// </summary>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
     private static string GetOtherArgs(IngestModel ingest)
     {
         var value = ingest.GetConfigurationValue("otherArgs");

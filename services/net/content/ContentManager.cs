@@ -9,6 +9,7 @@ using TNO.Services.Managers;
 using TNO.Services.Content.Config;
 using TNO.Core.Exceptions;
 using TNO.Core.Extensions;
+using TNO.Entities;
 
 namespace TNO.Services.Content;
 
@@ -68,7 +69,7 @@ public class ContentManager : ServiceManager<ContentOptions>
     }
     #endregion
 
-    #region Methoi
+    #region Methods
     /// <summary>
     /// Continually poll for updated data source configuration.
     /// When there are topics to listen too it will initialize a Kafka consumer.
@@ -147,6 +148,9 @@ public class ContentManager : ServiceManager<ContentOptions>
     {
         if (_consumer == null || _notRunning.Contains(_consumer.Status))
         {
+            // Make sure the prior task is cancelled before creating a new one.
+            if (_cancelToken?.IsCancellationRequested == false)
+                _cancelToken?.Cancel();
             _cancelToken = new CancellationTokenSource();
             _consumer = Task.Run(ConsumerHandlerAsync, _cancelToken.Token);
         }
@@ -161,7 +165,7 @@ public class ContentManager : ServiceManager<ContentOptions>
         while (this.State.Status == ServiceStatus.Running &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            await this.Consumer.ConsumeAsync(HandleMessageAsync);
+            await this.Consumer.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
         }
 
         // The service is stopping or has stopped, consume should stop too.
@@ -245,10 +249,10 @@ public class ContentManager : ServiceManager<ContentOptions>
                     OtherSeries = null, // TODO: Provide default series from Data Source config settings.
                     OwnerId = source?.OwnerId,
                     Headline = String.IsNullOrWhiteSpace(model.Title) ? "[TBD]" : model.Title,
-                    Uid = result.Message.Value.Uid,
+                    Uid = model.Uid,
                     Page = "", // TODO: Provide default page from Data Source config settings.
                     Summary = String.IsNullOrWhiteSpace(model.Summary) ? "[TBD]" : model.Summary,
-                    Body = "",
+                    Body = !String.IsNullOrWhiteSpace(model.Body) ? model.Body : model.ContentType == ContentType.Snippet ? "" : model.Summary,
                     SourceUrl = model.Link,
                     PublishedOn = model.PublishedOn,
                 };
@@ -260,24 +264,34 @@ public class ContentManager : ServiceManager<ContentOptions>
                 {
                     // TODO: Handle different storage locations.
                     // If the source content references a connection then fetch it to get the storage location of the file.
-                    var connection = model.ConnectionId.HasValue ? await _api.GetConnectionAsync(model.ConnectionId.Value) : null;
-                    var fullPath = Path.Combine(_options.VolumePath, connection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", model.FilePath.MakeRelativePath());
+                    var fullPath = Path.Combine(_options.VolumePath, model.FilePath.MakeRelativePath());
                     if (File.Exists(fullPath))
                     {
                         var file = File.OpenRead(fullPath);
                         var fileName = Path.GetFileName(fullPath);
-                        await _api.UploadFileAsync(content.Id, content.Version ?? 0, file, fileName);
+                        content = await _api.UploadFileAsync(content.Id, content.Version ?? 0, file, fileName);
 
                         // Send a Kafka message to the transcription topic
                         if (!String.IsNullOrWhiteSpace(_options.TranscriptionTopic))
                         {
-                            await SendMessageAsync(content);
+                            await SendMessageAsync(content!);
                         }
                     }
                     else
                     {
                         // TODO: Not sure if this should be considered a failure or not.
                         this.Logger.LogWarning("File not found.  Content ID: {id}, File: {path}", content.Id, fullPath);
+                    }
+                }
+
+                if (content != null)
+                {
+                    // Update the status of the content reference.
+                    var reference = await _api.FindContentReferenceAsync(content.OtherSource, content.Uid);
+                    if (reference != null)
+                    {
+                        reference.Status = (int)WorkflowStatus.Imported;
+                        await _api.UpdateContentReferenceAsync(reference);
                     }
                 }
             }

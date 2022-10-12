@@ -14,13 +14,13 @@ export const AudioClip: React.FC = (props) => {
   const timeZone = TimeZones.find((t) => t.value === values.configuration.timeZone);
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikSelect
         label="Timezone"
         name="configuration.timeZone"
         tooltip="Timezone of the source"
         options={TimeZones}
-        defaultValue={timeZone}
+        value={timeZone}
       />
       <FormikText
         label="Format"
@@ -28,6 +28,7 @@ export const AudioClip: React.FC = (props) => {
         tooltip="Format of the clip"
         placeholder="mp3"
       />
+      <p>Use "{'{schedule.Name}'}.mp3" to name the file with the schedule name.</p>
       <FormikText
         label="File Name"
         name="configuration.fileName"
@@ -61,6 +62,6 @@ export const AudioClip: React.FC = (props) => {
         name="configuration.throwOnMissingFile"
         tooltip="The service will throw an error if the capture file is not found or is missing data"
       />
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

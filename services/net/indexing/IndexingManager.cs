@@ -148,8 +148,11 @@ public class IndexingManager : ServiceManager<IndexingOptions>
     {
         if (_consumer == null || _notRunning.Contains(_consumer.Status))
         {
+            // Make sure the prior task is cancelled before creating a new one.
+            if (_cancelToken?.IsCancellationRequested == false)
+                _cancelToken?.Cancel();
             _cancelToken = new CancellationTokenSource();
-            _consumer = Task.Factory.StartNew(() => ConsumerHandler(), _cancelToken.Token);
+            _consumer = Task.Run(ConsumerHandlerAsync, _cancelToken.Token);
         }
     }
 
@@ -157,12 +160,12 @@ public class IndexingManager : ServiceManager<IndexingOptions>
     /// Keep consuming messages from Kafka until the service stops running.
     /// </summary>
     /// <returns></returns>
-    private async Task ConsumerHandler()
+    private async Task ConsumerHandlerAsync()
     {
         while (this.State.Status == ServiceStatus.Running &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            await this.Consumer.ConsumeAsync(HandleMessageAsync);
+            await this.Consumer.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
         }
 
         // The service is stopping or has stopped, consume should stop too.

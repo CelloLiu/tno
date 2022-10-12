@@ -1,6 +1,9 @@
+import { FormPage } from 'components/form';
 import styled from 'styled-components';
 
-export const ContentListView = styled.div`
+export const ContentListView = styled(FormPage)`
+  min-height: fit-content;
+
   .content-list {
     table {
       background: transparent;
@@ -15,9 +18,6 @@ export const ContentListView = styled.div`
   }
 
   .content-actions {
-    margin-top: 1em;
-    margin-bottom: 0.5em;
-
     button {
       display: block;
     }
@@ -43,5 +43,23 @@ export const ContentListView = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1 1 0%;
+  }
+
+  .h-status {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .h-publishedOn {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .h-use {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
   }
 `;

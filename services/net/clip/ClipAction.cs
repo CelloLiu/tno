@@ -11,6 +11,7 @@ using TNO.Models.Extensions;
 using TNO.Kafka.Models;
 using TNO.Services.Clip.Config;
 using TNO.Services.Command;
+using System.Diagnostics;
 
 namespace TNO.Services.Clip;
 
@@ -100,15 +101,8 @@ public class ClipAction : CommandAction<ClipOptions>
                         // TODO: Waiting for each clip to complete isn't ideal.  It needs to handle multiple processes.  However it is pretty quick at creating clips.
                         await RunProcessAsync(process, cancellationToken);
 
-                        if (sendMessage)
-                        {
-                            var messageResult = await SendMessageAsync(process, manager.Ingest, schedule, reference);
-                            reference.Partition = messageResult.Partition;
-                            reference.Offset = messageResult.Offset;
-                        }
-
-                        reference.Status = (int)WorkflowStatus.Received;
-                        await this.Api.UpdateContentReferenceAsync(reference);
+                        var messageResult = sendMessage ? await SendMessageAsync(process, manager.Ingest, schedule, reference) : null;
+                        await UpdateContentReferenceAsync(reference, messageResult);
                     }
                 }
                 else if (name == "stop")
@@ -124,6 +118,20 @@ public class ClipAction : CommandAction<ClipOptions>
 
                 throw;
             }
+        }
+    }
+
+    /// <summary>
+    /// FFMPEG sends all logs to the error output.  There isn't a way to tell the difference regrettably.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="manager"></param>
+    /// <param name="e"></param>
+    protected override void OnErrorReceived(object? sender, IIngestServiceActionManager? manager, DataReceivedEventArgs e)
+    {
+        if (!String.IsNullOrWhiteSpace(e.Data))
+        {
+            this.Logger.LogInformation("{data}", e.Data);
         }
     }
 
@@ -154,13 +162,15 @@ public class ClipAction : CommandAction<ClipOptions>
     /// <returns></returns>
     private ContentReferenceModel CreateContentReference(IngestModel ingest, ScheduleModel schedule)
     {
-        var today = GetLocalDateTime(ingest, DateTime.UtcNow);
-        var publishedOn = new DateTime(today.Year, today.Month, today.Day, 0, 0, 0, DateTimeKind.Local) + schedule.StartAt;
+        var today = GetDateTimeForTimeZone(ingest);
+        var publishedOn = new DateTime(today.Year, today.Month, today.Day, 0, 0, 0, today.Kind);
+        if (schedule.StartAt.HasValue)
+            publishedOn = publishedOn.Add(schedule.StartAt.Value);
         return new ContentReferenceModel()
         {
             Source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' missing source code."),
             Uid = $"{schedule.Name}:{schedule.Id}-{publishedOn:yyyy-MM-dd-hh-mm-ss}",
-            PublishedOn = publishedOn?.ToUniversalTime(),
+            PublishedOn = this.ToTimeZone(publishedOn, ingest).ToUniversalTime(),
             Topic = ingest.Topic,
             Status = (int)WorkflowStatus.InProgress
         };
@@ -179,11 +189,12 @@ public class ClipAction : CommandAction<ClipOptions>
     {
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
         var file = (string)process.Data["filename"];
-        var contentType = ingest.MediaType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing media content type.");
-        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, ingest.DestinationConnectionId, reference.Uid, $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}", "", "", publishedOn.ToUniversalTime())
+        var path = file.Replace(this.Options.VolumePath, "");
+        var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
+        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, reference.Uid, $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}", "", "", publishedOn.ToUniversalTime())
         {
             StreamUrl = ingest.GetConfigurationValue("url") ?? "",
-            FilePath = Path.Combine(ingest.DestinationConnection?.GetConfigurationValue("path") ?? "", file?.MakeRelativePath() ?? ""),
+            FilePath = path?.MakeRelativePath() ?? "",
             Language = ingest.GetConfigurationValue("language") ?? ""
         };
         var result = await this.Producer.SendMessageAsync(reference.Topic, content);
@@ -204,8 +215,7 @@ public class ClipAction : CommandAction<ClipOptions>
         process.StartInfo.Arguments = $"-c \"ffmpeg -i '{file}' 2>&1 | grep Video | awk '{{print $0}}' | tr -d ,\"";
         process.StartInfo.UseShellExecute = false;
         process.StartInfo.RedirectStandardOutput = true;
-        process.StartInfo.CreateNoWindow = true;
-        process.ErrorDataReceived += OnError;
+        process.EnableRaisingEvents = true;
         process.Start();
 
         var output = await process.StandardOutput.ReadToEndAsync();
@@ -221,7 +231,7 @@ public class ClipAction : CommandAction<ClipOptions>
     protected override IEnumerable<ScheduleModel> GetSchedules(IngestModel ingest)
     {
         var keepChecking = bool.Parse(ingest.GetConfigurationValue("keepChecking"));
-        var now = GetLocalDateTime(ingest, DateTime.UtcNow).TimeOfDay;
+        var now = GetDateTimeForTimeZone(ingest).TimeOfDay;
         return ingest.IngestSchedules.Where(s =>
             s.Schedule != null &&
             s.Schedule.StopAt != null &&
@@ -295,7 +305,7 @@ public class ClipAction : CommandAction<ClipOptions>
     private async Task<string> GetInputFileAsync(IngestModel ingest, ScheduleModel schedule)
     {
         // TODO: Handle issue where capture failed and has multiple files.
-        var path = Path.Combine(this.Options.VolumePath, ingest.SourceConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetLocalDateTime(ingest, DateTime.Now):yyyy-MM-dd}");
+        var path = Path.Combine(this.Options.VolumePath, ingest.SourceConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
         var clipStart = schedule.StartAt;
 
         // Review each file that was captured to determine which one is valid for this clip schedule.
@@ -369,16 +379,16 @@ public class ClipAction : CommandAction<ClipOptions>
         var process = new System.Diagnostics.Process();
         process.StartInfo.Verb = $"Duration";
         process.StartInfo.FileName = "/bin/sh";
-        // Intial
+        // Initial
         process.StartInfo.Arguments = $"-c \"ffprobe -i '{inputFile}' -show_format -v quiet | sed -n 's/duration=//p'\"";
         // Format (container) duration
         // process.StartInfo.Arguments = $"-c \"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{inputFile}\"";
         // Video stream duration
         // process.StartInfo.Arguments = $"-c \"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 \"{inputFile}\"";
         process.StartInfo.UseShellExecute = false;
-        process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.CreateNoWindow = true;
-        process.ErrorDataReceived += OnError;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.EnableRaisingEvents = true;
         process.Start();
 
         var output = await process.StandardOutput.ReadToEndAsync();
@@ -408,7 +418,7 @@ public class ClipAction : CommandAction<ClipOptions>
     /// <returns></returns>
     protected string GetOutputPath(IngestModel ingest)
     {
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetLocalDateTime(ingest, DateTime.Now):yyyy-MM-dd}");
+        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
     }
 
     /// <summary>

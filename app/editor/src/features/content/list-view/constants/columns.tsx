@@ -3,14 +3,16 @@ import { Column, UseSortByColumnOptions } from 'react-table';
 import { Checkbox, Date, Ellipsis } from 'tno-core/dist/components/cell';
 import { formatIdirUsername } from 'utils/formatIdir';
 
-export const columns = (minimize: boolean = false) => {
+import { getStatusText } from '../utils';
+
+export const columns = () => {
   const columns: (Column<IContentModel> & UseSortByColumnOptions<IContentModel>)[] = [
     {
       id: 'id',
       Header: 'Headline',
       accessor: 'headline',
       width: 5,
-      Cell: ({ value }) => <Ellipsis>{value}</Ellipsis>,
+      Cell: ({ value }) => <Ellipsis title={value}>{value}</Ellipsis>,
     },
     {
       id: 'otherSource',
@@ -21,7 +23,7 @@ export const columns = (minimize: boolean = false) => {
     },
     {
       id: 'productId',
-      Header: 'Type',
+      Header: 'Designation',
       width: 2,
       accessor: (row) => row.product?.name,
       Cell: ({ value }: { value: string }) => <Ellipsis>{value}</Ellipsis>,
@@ -35,11 +37,28 @@ export const columns = (minimize: boolean = false) => {
       Cell: ({ value }: { value: string }) => <Ellipsis>{value}</Ellipsis>,
     },
     {
+      id: 'ownerId',
+      Header: 'Username',
+      width: 1,
+      accessor: (row) => row.owner?.displayName,
+      Cell: ({ value }: { value: string }) => <Ellipsis>{formatIdirUsername(value)}</Ellipsis>,
+    },
+    {
+      id: 'status',
+      Header: 'Status',
+      width: 1,
+      accessor: (row) => <div className="center">{getStatusText(row.status)}</div>,
+    },
+    {
       id: 'publishedOn',
       Header: 'Pub Date',
       width: 1,
       accessor: (row) => row.publishedOn ?? row.createdOn,
-      Cell: ({ value }: any) => <Date value={value} />,
+      Cell: ({ value }: any) => (
+        <div className="center">
+          <Date value={value} />
+        </div>
+      ),
     },
     {
       id: 'use',
@@ -49,26 +68,14 @@ export const columns = (minimize: boolean = false) => {
       accessor: (row) =>
         row.status === ContentStatusName.Publish || row.status === ContentStatusName.Published,
       Cell: ({ value }: { value: boolean }) => {
-        return <Checkbox checked={value} />;
+        return (
+          <div className="center">
+            <Checkbox checked={value} />
+          </div>
+        );
       },
     },
   ];
-
-  if (!minimize) {
-    columns.splice(4, 0, {
-      id: 'ownerId',
-      Header: 'Username',
-      width: 1,
-      accessor: (row) => row.owner?.displayName,
-      Cell: ({ value }: { value: string }) => <Ellipsis>{formatIdirUsername(value)}</Ellipsis>,
-    });
-    columns.splice(5, 0, {
-      id: 'status',
-      Header: 'Status',
-      width: 1,
-      accessor: (row) => row.status,
-    });
-  }
 
   return columns;
 };

@@ -7,13 +7,13 @@ metadata:
   namespace: default
   annotations:
     description: Defines how to deploy capture-service
+    created-by: jeremy.foster
   labels:
     name: capture-service
     part-of: tno
     version: 1.0.0
     component: capture-service
     managed-by: kustomize
-    created-by: jeremy.foster
 spec:
   replicas: 1
   selector:
@@ -92,11 +92,6 @@ spec:
                 configMapKeyRef:
                   name: services
                   key: KEYCLOAK_AUTHORITY
-            - name: Auth__Keycloak__Realm
-              valueFrom:
-                configMapKeyRef:
-                  name: services
-                  key: KEYCLOAK_REALM
             - name: Auth__Keycloak__Audience
               valueFrom:
                 configMapKeyRef:

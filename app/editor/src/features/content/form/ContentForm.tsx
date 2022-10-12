@@ -9,6 +9,7 @@ import {
   FormikHidden,
   FormikSelect,
   FormikText,
+  FormikTextArea,
 } from 'components/formik';
 import { Modal } from 'components/modal';
 import { FormikProps } from 'formik';
@@ -24,12 +25,14 @@ import {
 } from 'hooks';
 import { ContentStatusName, IContentModel, ValueType } from 'hooks/api-editor';
 import { useModal } from 'hooks/modal';
+import { useTabValidationToasts } from 'hooks/useTabValidationToasts';
 import React from 'react';
 import { FaBars, FaChevronLeft, FaChevronRight, FaGripLines, FaSpinner } from 'react-icons/fa';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useContent, useLookup } from 'store/hooks';
 import { Button, ButtonVariant, Col, FieldSize, Row, Show, Tab, Tabs } from 'tno-core';
+import { hasErrors } from 'utils';
 
 import { ContentFormSchema } from '../validation';
 import {
@@ -42,7 +45,7 @@ import {
 import { defaultFormValues } from './constants';
 import { IContentForm } from './interfaces';
 import * as styled from './styled';
-import { switchStatus, toForm, toModel } from './utils';
+import { isSnippetForm, switchStatus, toForm, toModel } from './utils';
 
 export interface IContentFormProps {
   /** The content type this form will create */
@@ -53,23 +56,36 @@ export interface IContentFormProps {
  * Snippet Form edit and create form for default view. Path will be appended with content id.
  * @returns Edit/Create Form for Content
  */
-export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
+export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initContentType }) => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [{ sources, tonePools, series }, { getSeries }] = useLookup();
   const [
     { content: page },
-    { getContent, addContent, updateContent, deleteContent, upload, publishContent, attach },
+    {
+      getContent,
+      addContent,
+      updateContent,
+      deleteContent,
+      upload,
+      publishContent,
+      attach,
+      transcribe,
+      nlp,
+    },
   ] = useContent();
   const { isShowing, toggle } = useModal();
   const { userId } = useUserLookups();
   const sourceOptions = useSourceOptions();
   const productOptions = useProductOptions();
-  const combined = useCombinedView();
+  const { combined, formType } = useCombinedView(initContentType);
   useTooltips();
 
+  const [contentType, setContentType] = React.useState(formType ?? initContentType);
   const [size, setSize] = React.useState(1);
   const [active, setActive] = React.useState('properties');
+  const [savePressed, setSavePressed] = React.useState(false);
+  const [clipErrors, setClipErrors] = React.useState<string>('');
   const [content, setContent] = React.useState<IContentForm>({
     ...defaultFormValues(contentType),
     id: parseInt(id ?? '0'),
@@ -80,17 +96,24 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
   const enableNext = indexPosition < (page?.items.length ?? 0) - 1;
 
   const determineActions = () => {
-    if (contentType === ContentTypeName.Snippet)
-      return (a: IActionModel) => a.valueType === ValueType.Boolean;
-    if (contentType === ContentTypeName.PrintContent)
-      return (a: IActionModel) =>
-        a.valueType === ValueType.Boolean && a.name !== ActionName.NonQualified;
+    switch (contentType) {
+      case ContentTypeName.PrintContent:
+        return (a: IActionModel) =>
+          a.valueType === ValueType.Boolean && a.name !== ActionName.NonQualified;
+      case ContentTypeName.Snippet:
+      // TODO: Determine actions for remaining content types
+      // eslint-disable-next-line no-fallthrough
+      default:
+        return (a: IActionModel) => a.valueType === ValueType.Boolean;
+    }
   };
 
   const fetchContent = React.useCallback(
     (id: number) => {
       getContent(id).then((data) => {
         setContent(toForm(data));
+        // If the form is loaded from the URL instead of clicking on the list view it defaults to the snippet form.
+        setContentType(data.contentType);
       });
     },
     [getContent],
@@ -101,6 +124,8 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
       fetchContent(+id);
     }
   }, [id, fetchContent]);
+
+  const { setShowValidationToast } = useTabValidationToasts();
 
   const handleSubmit = async (values: IContentForm) => {
     let contentResult: IContentModel | null = null;
@@ -141,7 +166,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
 
       if (!originalId)
         navigate(
-          `${contentResult?.contentType === ContentTypeName.Snippet ? '/snippets/' : '/papers/'}${
+          `${isSnippetForm(contentResult?.contentType) ? '/snippets/' : '/papers/'}${
             combined ? '/contents/combined/' : ''
           }${contentResult.id}`,
         );
@@ -180,6 +205,32 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
     }
   };
 
+  const handleTranscribe = async (values: IContentForm) => {
+    try {
+      // Save before submitting request.
+      await handleSubmit(values);
+      await transcribe(toModel(values));
+
+      toast.success(`"${values.headline}" has successfully requested a transcript`);
+    } catch {
+      // Ignore this failure it is handled by our global ajax requests.
+    }
+  };
+
+  const handleNLP = async (values: IContentForm) => {
+    try {
+      // Save before submitting request.
+      await handleSubmit(values);
+      await nlp(toModel(values));
+
+      toast.success(
+        `"${values.headline}" has successfully requested a Natural Language Processing`,
+      );
+    } catch {
+      // Ignore this failure it is handled by our global ajax requests.
+    }
+  };
+
   return (
     <styled.ContentForm className="content-form">
       <FormPage minWidth={combined ? '' : '1200px'}>
@@ -191,7 +242,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                 variant={ButtonVariant.secondary}
                 tooltip="Combined View"
                 onClick={() => {
-                  navigate(`/contents/combined/${id}`);
+                  navigate(`/contents/combined/${id}?form=${contentType}`);
                 }}
               >
                 <FontAwesomeIcon icon={faTableColumns} />
@@ -202,7 +253,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                 variant={ButtonVariant.secondary}
                 tooltip="Full Page View"
                 onClick={() => {
-                  if (contentType === ContentTypeName.Snippet) navigate(`/snippets/${id}`);
+                  if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                   else navigate(`/papers/${id}`);
                 }}
               >
@@ -217,7 +268,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                   const id = page?.items[indexPosition - 1]?.id;
                   if (!!id) {
                     if (!!combined) navigate(`/contents/combined/${id}`);
-                    else if (contentType === ContentTypeName.Snippet) navigate(`/snippets/${id}`);
+                    else if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                     else navigate(`/papers/${id}`);
                   }
                 }}
@@ -231,7 +282,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                 onClick={() => {
                   const id = page?.items[indexPosition + 1]?.id;
                   if (combined) navigate(`/contents/combined/${id}`);
-                  else if (contentType === ContentTypeName.Snippet) navigate(`/snippets/${id}`);
+                  else if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                   else navigate(`/papers/${id}`);
                 }}
                 disabled={!enableNext}
@@ -261,7 +312,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                   <Show visible={size === 0}>
                     <Row flex="1 1 100%" wrap="nowrap">
                       <Col flex="1 1 0%">
-                        <FormikText
+                        <FormikTextArea
                           name="headline"
                           required
                           label="Headline"
@@ -284,12 +335,15 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                     <Col flex="1.5 1 0%">
                       <Row wrap="nowrap">
                         <Col flex="1 1 0%">
-                          <FormikText
+                          <FormikTextArea
                             name="headline"
                             required
                             label="Headline"
                             value={props.values.headline}
                           />
+                          <Show visible={!isSnippetForm(contentType)}>
+                            <FormikText name="byline" label="Byline" required />
+                          </Show>
                         </Col>
                         <Col>
                           <Button
@@ -349,31 +403,23 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                             required
                           />
                         </Col>
-                        <Show visible={contentType !== ContentTypeName.Snippet}>
+                        <Show visible={!isSnippetForm(contentType)}>
                           <Col grow={1}>
                             <FormikText name="edition" label="Edition" />
                           </Col>
                         </Show>
                       </Row>
-                      <Show visible={contentType !== ContentTypeName.Snippet}>
+                      <Show visible={!isSnippetForm(contentType)}>
                         <Row>
                           <FormikText name="section" label="Section" required />
-                          <FormikText name="storyType" label="Story Type" required />
                           <FormikText name="page" label="Page" />
                         </Row>
-                        <FormikText name="byline" label="Byline" required />
                       </Show>
-                      <Show visible={contentType === ContentTypeName.Snippet}>
+                      <Show visible={isSnippetForm(contentType)}>
                         <FormikText
                           name="sourceUrl"
                           label="Source URL"
                           tooltip="The URL to the original source story"
-                          onChange={(e) => {
-                            props.handleChange(e);
-                            if (!!props.values.uid && !!e.currentTarget.value)
-                              props.setFieldValue('uid', e.currentTarget.value);
-                            else props.setFieldValue('uid', '');
-                          }}
                         />
                       </Show>
                     </Col>
@@ -406,26 +452,38 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                   </Show>
                 </Row>
                 <Row>
-                  <Show visible={contentType === ContentTypeName.Snippet}>
+                  <Show visible={isSnippetForm(contentType)}>
                     <Tabs
-                      className={`tabs ${size === 1 ? 'small' : 'large'}`}
+                      className={`${combined ? 'fit' : 'expand'} ${size === 1 ? 'small' : 'large'}`}
                       tabs={
                         <>
                           <Tab
                             label="Properties"
-                            onClick={() => setActive('properties')}
+                            onClick={() => {
+                              setActive('properties');
+                            }}
                             active={active === 'properties'}
+                            hasErrors={
+                              hasErrors(props.errors, ['publishedOn', 'tone', 'summary']) &&
+                              active !== 'properties'
+                            }
+                            showErrorOnSave={{ value: true, savePressed: savePressed }}
+                            setShowValidationToast={setShowValidationToast}
                           />
-                          <Tab
-                            label="Transcript"
-                            onClick={() => setActive('transcript')}
-                            active={active === 'transcript'}
-                          />
-                          <Tab
-                            label="Clips"
-                            onClick={() => setActive('clips')}
-                            active={active === 'clips'}
-                          />
+                          <Show visible={props.values.contentType === ContentTypeName.Snippet}>
+                            <Tab
+                              label="Transcript"
+                              onClick={() => setActive('transcript')}
+                              active={active === 'transcript'}
+                            />
+                            <Tab
+                              label="Clips"
+                              onClick={() => setActive('clips')}
+                              active={active === 'clips'}
+                              hasErrors={!!clipErrors && active !== 'clips'}
+                              showErrorOnSave={{ value: true, savePressed: savePressed }}
+                            />
+                          </Show>
                           <Tab
                             label="Labels"
                             onClick={() => setActive('labels')}
@@ -439,20 +497,25 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                           content={content}
                           setContent={setContent}
                           contentType={contentType}
+                          savePressed={savePressed}
                         />
                       </Show>
                       <Show visible={active === 'transcript'}>
                         <ContentTranscriptForm />
                       </Show>
                       <Show visible={active === 'clips'}>
-                        <ContentClipForm content={content} setContent={setContent} />
+                        <ContentClipForm
+                          content={content}
+                          setContent={setContent}
+                          setClipErrors={setClipErrors}
+                        />
                       </Show>
                       <Show visible={active === 'labels'}>
                         <ContentLabelsForm />
                       </Show>
                     </Tabs>
                   </Show>
-                  <Show visible={contentType !== ContentTypeName.Snippet}>
+                  <Show visible={!isSnippetForm(contentType)}>
                     <ContentSummaryForm
                       content={content}
                       setContent={setContent}
@@ -461,7 +524,11 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                   </Show>
                 </Row>
                 <Row>
-                  <Button type="submit" disabled={props.isSubmitting}>
+                  <Button
+                    type="submit"
+                    disabled={props.isSubmitting}
+                    onClick={() => setSavePressed(true)}
+                  >
                     Save
                   </Button>
                   <Show visible={!!props.values.id}>
@@ -472,6 +539,33 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType }) => {
                     >
                       Publish
                     </Button>
+                    <Show
+                      visible={
+                        !!props.values.id && props.values.contentType === ContentTypeName.Snippet
+                      }
+                    >
+                      <Button
+                        onClick={() => handleTranscribe(props.values)}
+                        variant={ButtonVariant.action}
+                        disabled={
+                          props.isSubmitting ||
+                          !props.values.fileReferences.length ||
+                          (props.values.fileReferences.length > 0 &&
+                            !props.values.fileReferences[0].isUploaded)
+                        }
+                      >
+                        Request Transcript
+                      </Button>
+                    </Show>
+                    <Show visible={!!props.values.id && props.values.body.length > 0}>
+                      <Button
+                        onClick={() => handleNLP(props.values)}
+                        variant={ButtonVariant.action}
+                        disabled={props.isSubmitting}
+                      >
+                        Request NLP
+                      </Button>
+                    </Show>
                     <Button
                       onClick={toggle}
                       variant={ButtonVariant.danger}

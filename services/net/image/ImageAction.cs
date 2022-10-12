@@ -8,7 +8,6 @@ using TNO.Kafka;
 using TNO.Models.Extensions;
 using TNO.Kafka.Models;
 using TNO.Services.Actions;
-using TNO.Services.Actions.Managers;
 using TNO.Services.Image.Config;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
@@ -18,7 +17,7 @@ namespace TNO.Services.Image;
 
 /// <summary>
 /// ImageAction class, performs the image ingestion action.
-/// Fetch image from data source location.
+/// Fetch image from ingest location.
 /// Send content reference to API.
 /// Process image based on configuration.
 /// Send message to Kafka.
@@ -68,18 +67,19 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <param name="data"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
+    /// <exception cref="ConfigurationException"></exception>
     public override async Task PerformActionAsync<T>(IIngestServiceActionManager manager, string? name = null, T? data = null, CancellationToken cancellationToken = default) where T : class
     {
-        this.Logger.LogDebug("Performing ingestion service action for data source '{name}'", manager.Ingest.Name);
+        this.Logger.LogDebug("Performing ingestion service action for ingest '{name}'", manager.Ingest.Name);
 
         // Extract the ingest configuration settings.
-        var inputFileCode = String.IsNullOrWhiteSpace(manager.Ingest.GetConfigurationValue("code")) ? manager.Ingest.Source?.Code : manager.Ingest.GetConfigurationValue("code");
-        if (String.IsNullOrWhiteSpace(inputFileCode)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' is missing a 'code'.");
+        var inputFileName = String.IsNullOrWhiteSpace(manager.Ingest.GetConfigurationValue("fileName")) ? manager.Ingest.Source?.Code : manager.Ingest.GetConfigurationValue("fileName");
+        if (String.IsNullOrWhiteSpace(inputFileName)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' is missing a 'fileName'.");
 
         // TODO: Handle different remote connections.
         // TODO: create new account to access server
         // Extract the source connection configuration settings.
-        var remotePath = manager.Ingest.SourceConnection?.GetConfigurationValue("path");
+        var remotePath = GetInputPath(manager.Ingest);
         var username = manager.Ingest.SourceConnection?.GetConfigurationValue("username");
         var keyFileName = manager.Ingest.SourceConnection?.GetConfigurationValue("keyFileName");
         var hostname = manager.Ingest.SourceConnection?.GetConfigurationValue("hostname");
@@ -96,13 +96,13 @@ public class ImageAction : IngestAction<ImageOptions>
 
             var keyFiles = new[] { keyFile };
             var connectionInfo = new ConnectionInfo(hostname,
-                                                    username,
-                                                    new PrivateKeyAuthenticationMethod(username, keyFiles));
+                                                username,
+                                                new PrivateKeyAuthenticationMethod(username, keyFiles));
             using var client = new SftpClient(connectionInfo);
             client.Connect();
-
-            var files = await FetchImage(client, remotePath);
-            files = files.Where(f => f.Name.Contains(inputFileCode));
+            var files = await FetchImagesAsync(client, remotePath);
+            files = files.Where(f => f.Name.Contains(inputFileName));
+            this.Logger.LogDebug("{count} files were discovered that match the filter '{filter}'.", files.Count(), inputFileName);
 
             foreach (var file in files)
             {
@@ -124,17 +124,10 @@ public class ImageAction : IngestAction<ImageOptions>
 
                 if (reference != null)
                 {
-                    await CopyImage(client, manager.Ingest, Path.Combine(remotePath, file.Name));
+                    await CopyImageAsync(client, manager.Ingest, Path.Combine(remotePath, file.Name));
 
-                    if (sendMessage)
-                    {
-                        var messageResult = await SendMessageAsync(manager.Ingest, reference);
-                        reference.Partition = messageResult.Partition;
-                        reference.Offset = messageResult.Offset;
-                    }
-
-                    reference.Status = (int)WorkflowStatus.Received;
-                    await this.Api.UpdateContentReferenceAsync(reference);
+                    var messageResult = sendMessage ? await SendMessageAsync(manager.Ingest, reference) : null;
+                    await UpdateContentReferenceAsync(reference, messageResult);
                 }
             }
 
@@ -142,9 +135,8 @@ public class ImageAction : IngestAction<ImageOptions>
         }
         else
         {
-            this.Logger.LogError("SSH Private key file does not exist: {file}", sshKeyFile);
+            throw new ConfigurationException($"SSH Private key file does not exist: {sshKeyFile}");
         }
-
     }
 
     /// <summary>
@@ -155,7 +147,7 @@ public class ImageAction : IngestAction<ImageOptions>
     protected string GetOutputPath(IngestModel ingest)
     {
         // TODO: Handle different destination connections.
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetLocalDateTime(ingest, DateTime.Now):yyyy-MM-dd/}");
+        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd/}");
     }
 
     /// <summary>
@@ -165,24 +157,22 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <returns></returns>
     protected string GetInputPath(IngestModel ingest)
     {
-        return Path.Combine(ingest.SourceConnection?.GetConfigurationValue("path") ?? "", $"{GetLocalDateTime(ingest, DateTime.Now):yyyy/MM/dd/}");
+        var currentDate = GetDateTimeForTimeZone(ingest);
+        return Path.Combine(ingest.SourceConnection?.GetConfigurationValue("path") ?? "", ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "", currentDate.Year.ToString(), currentDate.Month.ToString("00"), currentDate.Day.ToString("00"));
     }
 
-
     /// <summary>
-    /// Fetch the image from the remote data source based on configuration.
+    /// Fetch the image from the remote ingest based on configuration.
     /// </summary>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    private static async Task<IEnumerable<SftpFile>> FetchImage(SftpClient client, string remoteFullName)
+    private static async Task<IEnumerable<SftpFile>> FetchImagesAsync(SftpClient client, string remoteFullName)
     {
-        // TODO: use private keys in ./keys folder to connect to remote data source.
+        // TODO: use private keys in ./keys folder to connect to remote ingest.
         // TODO: Fetch image from source data location.  Only continue if the image exists.
-        // TODO: Eventually handle different data source locations based on config.
+        // TODO: Eventually handle different ingest locations based on config.
         return await Task.Factory.FromAsync<IEnumerable<SftpFile>>((callback, obj) => client.BeginListDirectory(remoteFullName, callback, obj), client.EndListDirectory, null);
     }
-
 
     /// <summary>
     /// Perform image processing based on configuration.
@@ -190,12 +180,11 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <param name="ingest"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    private Task ProcessImage(IngestModel ingest)
+    private Task ProcessImageAsync(IngestModel ingest)
     {
         // TODO: Process Image based on configuration.
         throw new NotImplementedException();
     }
-
 
     /// <summary>
     /// Copy image from image server
@@ -204,7 +193,7 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <param name="ingest"></param>
     /// <param name="pathToFile"></param>
     /// <returns></returns>
-    private async Task CopyImage(SftpClient client, IngestModel ingest, string pathToFile)
+    private async Task CopyImageAsync(SftpClient client, IngestModel ingest, string pathToFile)
     {
         // Copy image to destination data location.
         // TODO: Eventually handle different destination data locations based on config.
@@ -219,8 +208,7 @@ public class ImageAction : IngestAction<ImageOptions>
                 Directory.CreateDirectory(outputPath);
             }
             using var saveFile = File.OpenWrite(outputFile);
-            var task = Task.Factory.FromAsync(client.BeginDownloadFile(pathToFile, saveFile), client.EndDownloadFile);
-            await task;
+            await Task.Factory.FromAsync(client.BeginDownloadFile(pathToFile, saveFile), client.EndDownloadFile);
         }
     }
 
@@ -231,13 +219,13 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <returns></returns>
     private ContentReferenceModel CreateContentReference(IngestModel ingest, string filename)
     {
-        var today = GetLocalDateTime(ingest, DateTime.UtcNow);
-        var publishedOn = new DateTime(today.Year, today.Month, today.Day, today.Hour, today.Minute, today.Second, DateTimeKind.Local);
+        var today = GetDateTimeForTimeZone(ingest);
+        var publishedOn = new DateTime(today.Year, today.Month, today.Day, today.Hour, today.Minute, today.Second, today.Kind);
         return new ContentReferenceModel()
         {
             Source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing source code."),
             Uid = $"{filename}",
-            PublishedOn = publishedOn.ToUniversalTime(),
+            PublishedOn = this.ToTimeZone(publishedOn, ingest).ToUniversalTime(),
             Topic = ingest.Topic,
             Status = (int)WorkflowStatus.InProgress
         };
@@ -253,12 +241,12 @@ public class ImageAction : IngestAction<ImageOptions>
     private async Task<Confluent.Kafka.DeliveryResult<string, SourceContent>> SendMessageAsync(IngestModel ingest, ContentReferenceModel reference)
     {
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
-        var contentType = ingest.MediaType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing media content type.");
-        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, ingest.DestinationConnectionId, reference.Uid, $"{ingest.Name} Frontpage", "", "", publishedOn.ToUniversalTime())
+        var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
+        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, reference.Uid, $"{ingest.Name} Frontpage", "", "", publishedOn.ToUniversalTime())
         {
-            StreamUrl = ingest.GetConfigurationValue("url") ?? "",
-            FilePath = Path.Combine(GetOutputPath(ingest), reference.Uid),
-            Language = ingest.GetConfigurationValue("language") ?? ""
+            StreamUrl = ingest.GetConfigurationValue("url"),
+            FilePath = Path.Combine(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd/}", reference.Uid),
+            Language = ingest.GetConfigurationValue("language")
         };
         var result = await this.Producer.SendMessageAsync(reference.Topic, content);
         if (result == null) throw new InvalidOperationException($"Failed to receive result from Kafka for {reference.Source}:{reference.Uid}");
@@ -272,25 +260,12 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <returns></returns>
     protected IEnumerable<ScheduleModel> GetSchedules(IngestModel ingest)
     {
-        var now = GetLocalDateTime(ingest, DateTime.UtcNow).TimeOfDay;
+        var now = GetDateTimeForTimeZone(ingest).TimeOfDay;
         return ingest.IngestSchedules.Where(s =>
             s.Schedule != null &&
             s.Schedule.StopAt != null &&
             s.Schedule.StopAt.Value <= now
         ).Select(s => s.Schedule!);
     }
-
-    /// <summary>
-    /// Convert to timezone and return as local.
-    /// Dates should be stored in the timezone of the data source.
-    /// </summary>
-    /// <param name="ingest"></param>
-    /// <param name="date"></param>
-    /// <returns></returns>
-    protected DateTime GetLocalDateTime(IngestModel ingest, DateTime date)
-    {
-        return date.ToTimeZone(IngestActionManager<ImageOptions>.GetTimeZone(ingest, this.Options.TimeZone));
-    }
-
     #endregion
 }

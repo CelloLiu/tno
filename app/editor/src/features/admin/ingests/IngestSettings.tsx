@@ -1,6 +1,6 @@
-import { FormikCheckbox, FormikSelect } from 'components/formik';
+import { FormikCheckbox, FormikSelect, FormikText } from 'components/formik';
 import { useFormikContext } from 'formik';
-import { useTooltips } from 'hooks';
+import { ConnectionTypeName, useTooltips } from 'hooks';
 import { IIngestModel } from 'hooks/api-editor';
 import React from 'react';
 import { useLookup } from 'store/hooks';
@@ -25,7 +25,7 @@ export const IngestSettings: React.FC<IIngestSettingsProps> = () => {
 
   const [loading, setLoading] = React.useState(true);
 
-  const mediaTypes = getSortableOptions(lookups.mediaTypes);
+  const ingestTypes = getSortableOptions(lookups.ingestTypes);
   const connectionOptions = getSortableOptions(connections);
 
   React.useEffect(() => {
@@ -37,24 +37,24 @@ export const IngestSettings: React.FC<IIngestSettingsProps> = () => {
 
   React.useEffect(() => {
     // Ensures the connection settings can display the correct form on initial load.
-    const mediaType = lookups.mediaTypes.find((mt) => mt.id === values.mediaTypeId);
-    setFieldValue('mediaType', mediaType);
-  }, [lookups.mediaTypes, setFieldValue, values.mediaTypeId, values.mediaType]);
+    const ingestType = lookups.ingestTypes.find((mt) => mt.id === values.ingestTypeId);
+    setFieldValue('ingestType', ingestType);
+  }, [lookups.ingestTypes, setFieldValue, values.ingestTypeId, values.ingestType]);
 
   return (
     <styled.IngestSettings className="schedule">
       <h2>{values.name}</h2>
       <p>
         Data source configuration settings provide the configuration that enables the service to
-        ingest content. Each media type may have different configuration options.
+        ingest content. Each ingest type may have different configuration options.
       </p>
-      <Show visible={values.mediaType?.name === 'Audio'}>
+      <Show visible={values.ingestType?.name === 'Audio'}>
         <p>
           Audio can be captured as both a stream and clip. Audio clips can be extracted from an
           active stream. This enables running the clip service separately to generate clips.
         </p>
       </Show>
-      <Show visible={values.mediaType?.name === 'Video'}>
+      <Show visible={values.ingestType?.name === 'Video'}>
         <p>
           Video can only create clips from a completed file. Video streams must be complete before
           they are used for clips. This requires the stream service to be used to generate clips.
@@ -64,8 +64,8 @@ export const IngestSettings: React.FC<IIngestSettingsProps> = () => {
         <Col flex="1 1">
           <h3>Connection</h3>
           <Section>
-            <p>Select the appropriate media type that this service will ingest.</p>
-            <FormikSelect label="Media Type" name="mediaTypeId" options={mediaTypes} required />
+            <p>Select the appropriate ingest type that this service will ingest.</p>
+            <FormikSelect label="Ingest Type" name="ingestTypeId" options={ingestTypes} required />
             <p>
               If the ingest service will connect to a remote source of data select the connection,
               otherwise select 'None'.
@@ -80,6 +80,62 @@ export const IngestSettings: React.FC<IIngestSettingsProps> = () => {
               }}
               required
             />
+            <Show
+              visible={values.sourceConnection?.connectionType === ConnectionTypeName.LocalVolume}
+            >
+              <FormikText
+                label="Path"
+                name="_.path"
+                value={values.sourceConnection?.configuration.path}
+                disabled
+              />
+            </Show>
+            <Show visible={values.sourceConnection?.connectionType === ConnectionTypeName.SSH}>
+              <FormikText
+                label="Hostname"
+                name="_.hostname"
+                value={values.sourceConnection?.configuration.hostname}
+                disabled
+              />
+              <Row>
+                <Col flex="1 1 0">
+                  <FormikText
+                    label="Username"
+                    name="_.username"
+                    value={values.sourceConnection?.configuration.username}
+                    disabled
+                  />
+                </Col>
+                <Col flex="1 1 0">
+                  <FormikText
+                    label="Password"
+                    name="_.password"
+                    value={values.sourceConnection?.configuration.password}
+                    type="password"
+                    disabled
+                    autoComplete="off"
+                  />
+                </Col>
+              </Row>
+              <Row>
+                <Col flex="1 1 0">
+                  <FormikText
+                    label="Volume Path"
+                    name="_.path"
+                    value={values.sourceConnection?.configuration.path}
+                    disabled
+                  />
+                </Col>
+                <Col flex="1 1 0">
+                  <FormikText
+                    label="Key Filename"
+                    name="_.keyFileName"
+                    value={values.sourceConnection?.configuration.keyFileName}
+                    disabled
+                  />
+                </Col>
+              </Row>
+            </Show>
             <p>
               If the ingest service will generate files select the connection that represents the
               destination for these files, otherwise select 'None'.
@@ -94,6 +150,18 @@ export const IngestSettings: React.FC<IIngestSettingsProps> = () => {
               }}
               required
             />
+            <Show
+              visible={
+                values.destinationConnection?.connectionType === ConnectionTypeName.LocalVolume
+              }
+            >
+              <FormikText
+                label="Path"
+                name="_.path"
+                value={values.destinationConnection?.configuration.path}
+                disabled
+              />
+            </Show>
             <p>
               Select if content should be posted to Kafka. If the service doesn't generate content
               it doesn't need to capture.

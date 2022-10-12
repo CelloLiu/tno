@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TNO.API.Areas.Services.Models.Ingest;
@@ -103,7 +104,10 @@ public abstract class CommandAction<TOptions> : IngestAction<TOptions>
     {
         var cmd = process.Process.StartInfo.Arguments;
         this.Logger.LogInformation("Starting process for command: {cmd}", cmd);
+
         if (!process.Process.Start()) this.Logger.LogError("Unable to start service command for data source '{Code}'.", process.Process.StartInfo.Verb);
+        process.Process.BeginOutputReadLine();
+        process.Process.BeginErrorReadLine();
 
         // We can't wait because it would block all other Command service cmds.  So we test for an early exit.
         if (process.Process.HasExited) throw new Exception($"Failed to start command: {cmd}");
@@ -161,10 +165,13 @@ public abstract class CommandAction<TOptions> : IngestAction<TOptions>
             process.StartInfo.Arguments = GenerateCommandArgumentsAsync(value, manager, schedule).Result;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardInput = true;
             process.EnableRaisingEvents = true;
             process.Exited += async (sender, e) => await OnExitedAsync(sender, manager, e);
-            process.ErrorDataReceived += OnError;
-            process.StartInfo.RedirectStandardInput = true;
+            process.ErrorDataReceived += (sender, e) => OnErrorReceived(sender, manager, e);
+            process.OutputDataReceived += (sender, e) => OnOutputReceived(sender, manager, e);
 
             // Keep a reference to the running process.
             manager.Values[key] = value;
@@ -201,6 +208,39 @@ public abstract class CommandAction<TOptions> : IngestAction<TOptions>
     /// <param name="sender"></param>
     /// <param name="manager"></param>
     /// <param name="e"></param>
+    protected virtual void OnOutputReceived(object? sender, IIngestServiceActionManager? manager, DataReceivedEventArgs e)
+    {
+        if (!String.IsNullOrWhiteSpace(e.Data))
+        {
+            this.Logger.LogDebug("{data}", e.Data);
+        }
+    }
+
+    /// <summary>
+    /// Log error information for the process.
+    /// Many processes send all their output to the error output so override accordingly.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="manager"></param>
+    /// <param name="e"></param>
+    protected virtual void OnErrorReceived(object? sender, IIngestServiceActionManager? manager, System.Diagnostics.DataReceivedEventArgs e)
+    {
+        if (!String.IsNullOrWhiteSpace(e.Data))
+        {
+            if (sender is System.Diagnostics.Process process)
+            {
+                var args = process.StartInfo.Arguments;
+                this.Logger.LogError("Service arguments '{args}' failure: {Data}", args, e.Data);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Log exit information for the process.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="manager"></param>
+    /// <param name="e"></param>
     protected async Task OnExitedAsync(object? sender, IIngestServiceActionManager manager, EventArgs e)
     {
         if (sender is System.Diagnostics.Process process)
@@ -225,20 +265,6 @@ public abstract class CommandAction<TOptions> : IngestAction<TOptions>
     }
 
     /// <summary>
-    /// Log error information for the process.
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    protected void OnError(object? sender, System.Diagnostics.DataReceivedEventArgs e)
-    {
-        if (sender is System.Diagnostics.Process process)
-        {
-            var args = process.StartInfo.Arguments;
-            this.Logger.LogError("Service arguments '{args}' failure: {Data}", args, e.Data);
-        }
-    }
-
-    /// <summary>
     /// Determine if the process is running.
     /// </summary>
     /// <param name="process"></param>
@@ -254,18 +280,6 @@ public abstract class CommandAction<TOptions> : IngestAction<TOptions>
         {
             return false;
         }
-    }
-
-    /// <summary>
-    /// Convert to timezone and return as local.
-    /// Dates should be stored in the timezone of the data source.
-    /// </summary>
-    /// <param name="ingest"></param>
-    /// <param name="date"></param>
-    /// <returns></returns>
-    protected DateTime GetLocalDateTime(IngestModel ingest, DateTime date)
-    {
-        return date.ToTimeZone(CommandIngestActionManager.GetTimeZone(ingest, this.Options.TimeZone));
     }
 
     /// <summary>

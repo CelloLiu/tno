@@ -1,4 +1,3 @@
-import { FormPage } from 'components/form/formpage';
 import { ContentTypeName, useCombinedView, useTooltips } from 'hooks';
 import { IContentModel } from 'hooks/api-editor';
 import React from 'react';
@@ -14,15 +13,19 @@ import { IContentListFilter } from './interfaces';
 import * as styled from './styled';
 import { makeFilter } from './utils';
 
+/**
+ * ContentListView provides a way to list, search and select content for viewing and editing.
+ * Also provides a combined view which splits the page into two columns.
+ * @returns Component
+ */
 export const ContentListView: React.FC = () => {
   const [{ userInfo }, { isUserReady }] = useApp();
   const { id } = useParams();
   const [{ filter, filterAdvanced, content }, { findContent, storeFilter }] = useContent();
   const navigate = useNavigate();
-  const combined = useCombinedView();
+  const { combined, formType } = useCombinedView();
   useTooltips();
-
-  const [contentType, setContentType] = React.useState<ContentTypeName>(ContentTypeName.Snippet);
+  const [contentType, setContentType] = React.useState(formType ?? ContentTypeName.Snippet);
   const [loading, setLoading] = React.useState(false);
   const [activeId, setActiveId] = React.useState<number>(parseInt(id ?? '0'));
 
@@ -103,73 +106,62 @@ export const ContentListView: React.FC = () => {
     navigate(`/contents/combined/${content.id}`);
   };
 
+  const hideColumns = (combined: boolean, contentType?: ContentTypeName) => {
+    const hiddenColumns = [];
+
+    if (combined) {
+      hiddenColumns.push('ownerId');
+      hiddenColumns.push('status');
+    }
+
+    if (contentType !== ContentTypeName.PrintContent) {
+      hiddenColumns.push('page');
+    }
+
+    return hiddenColumns;
+  };
+
   return (
     <styled.ContentListView>
-      <FormPage>
-        <Row wrap="nowrap">
-          <Col className="left-pane">
-            <ContentFilter search={fetch} />
-            <Row className="content-list">
-              <PagedTable
-                columns={columns(combined)}
-                page={page}
-                isLoading={loading}
-                sorting={{ sortBy: filter.sort }}
-                onRowClick={(row) => handleRowClick(row.original)}
-                activeId={activeId}
-                onChangePage={handleChangePage}
-                onChangeSort={handleChangeSort}
-              />
-            </Row>
-            <Row className="content-actions">
-              <Button
-                name="create"
-                onClick={() => navigate('/snippets/0')}
-                variant={ButtonVariant.secondary}
-              >
-                Create Snippet
-              </Button>
-              <Button
-                name="create"
-                onClick={() => navigate('/papers/0')}
-                variant={ButtonVariant.secondary}
-              >
-                Create Print Content
-              </Button>
-              <div>Send to</div>
-              <Button
-                name="create"
-                variant={ButtonVariant.secondary}
-                disabled
-                tooltip="Under Construction"
-              >
-                Front Pages
-              </Button>
-              <Button
-                name="create"
-                variant={ButtonVariant.secondary}
-                disabled
-                tooltip="Under Construction"
-              >
-                Top Stories
-              </Button>
-              <Button
-                name="create"
-                variant={ButtonVariant.secondary}
-                disabled
-                tooltip="Under Construction"
-              >
-                Commentary
-              </Button>
-            </Row>
+      <Row wrap="nowrap">
+        <Col className="left-pane">
+          <ContentFilter search={fetch} />
+          <Row className="content-list">
+            <PagedTable
+              columns={columns()}
+              hiddenColumns={hideColumns(combined, filter.contentType)}
+              page={page}
+              isLoading={loading}
+              sorting={{ sortBy: filter.sort }}
+              onRowClick={(row) => handleRowClick(row.original)}
+              activeId={activeId}
+              onChangePage={handleChangePage}
+              onChangeSort={handleChangeSort}
+            />
+          </Row>
+          <Row className="content-actions">
+            <Button
+              name="create"
+              onClick={() => navigate('/snippets/0')}
+              variant={ButtonVariant.secondary}
+            >
+              Create Snippet
+            </Button>
+            <Button
+              name="create"
+              onClick={() => navigate('/papers/0')}
+              variant={ButtonVariant.secondary}
+            >
+              Create Print Content
+            </Button>
+          </Row>
+        </Col>
+        <Show visible={combined}>
+          <Col className="right-pane">
+            <ContentForm contentType={contentType} />
           </Col>
-          <Show visible={combined}>
-            <Col className="right-pane">
-              <ContentForm contentType={contentType} />
-            </Col>
-          </Show>
-        </Row>
-      </FormPage>
+        </Show>
+      </Row>
     </styled.ContentListView>
   );
 };

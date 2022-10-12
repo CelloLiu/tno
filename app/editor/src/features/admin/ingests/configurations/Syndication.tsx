@@ -13,7 +13,7 @@ export const Syndication: React.FC = (props) => {
   useTooltips();
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikText
         label="Syndication Feed URL"
         name="configuration.url"
@@ -25,7 +25,7 @@ export const Syndication: React.FC = (props) => {
         name="configuration.timeZone"
         tooltip="Timezone of the source"
         options={TimeZones}
-        defaultValue={timeZone}
+        value={timeZone}
       />
       <FormikText
         label="Username"
@@ -49,6 +49,6 @@ export const Syndication: React.FC = (props) => {
           setFieldValue('configuration.fetchContent', e.currentTarget.checked);
         }}
       />
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

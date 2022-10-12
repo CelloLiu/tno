@@ -15,7 +15,7 @@ export const AudioStream: React.FC = (props) => {
   const language = Languages.find((t) => t.value === values.configuration.language);
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikText
         label="Stream URL"
         name="configuration.url"
@@ -27,13 +27,13 @@ export const AudioStream: React.FC = (props) => {
         name="configuration.timeZone"
         tooltip="Timezone of the source"
         options={TimeZones}
-        defaultValue={timeZone}
+        value={timeZone}
       />
       <FormikSelect
         label="Language"
         name="configuration.language"
         options={Languages}
-        defaultValue={language}
+        value={language}
       />
       <FormikText
         label="Format"
@@ -41,6 +41,7 @@ export const AudioStream: React.FC = (props) => {
         tooltip="Format of the stream"
         placeholder="mp3"
       />
+      <p>Use "{'{schedule.Name}'}.mp3" to name the file with the schedule name.</p>
       <FormikText
         label="File Name"
         name="configuration.fileName"
@@ -57,7 +58,8 @@ export const AudioStream: React.FC = (props) => {
         label="Other Arguments"
         name="configuration.otherArgs"
         tooltip="Any other arguments to pass to the command"
+        placeholder="-acodec mp3 -ab 257k"
       />
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

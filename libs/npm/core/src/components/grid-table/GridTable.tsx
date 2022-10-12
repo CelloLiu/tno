@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Column,
+  IdType,
   Row,
   SortingRule,
   useFilters,
@@ -100,6 +101,10 @@ export interface IGridTableProps<CT extends object = Record<string, unknown>> {
    * Whether to include manual page sizing on the pager
    */
   manualPageSize?: boolean;
+  /**
+   * Provide an array of columns to hide from the table
+   */
+  hiddenColumns?: IdType<CT>[];
 }
 
 /**
@@ -119,6 +124,7 @@ export const GridTable = <T extends object>({
   paging,
   sorting,
   isLoading,
+  hiddenColumns = [],
   filters,
   activeId,
   activeAssessor = 'id',
@@ -145,6 +151,7 @@ export const GridTable = <T extends object>({
         pageIndex: initialPageIndex,
         pageSize: initialPageSize,
         sortBy: initialSortBy,
+        hiddenColumns: hiddenColumns,
       },
     },
     useFilters,
@@ -168,6 +175,7 @@ export const GridTable = <T extends object>({
     nextPage,
     previousPage,
     setPageSize,
+    setHiddenColumns,
     state: { pageIndex, pageSize, sortBy },
   } = instance;
   const [currentPage, setCurrentPage] = React.useState({ pageIndex, pageSize });
@@ -183,6 +191,12 @@ export const GridTable = <T extends object>({
     pageIndex,
     pageSize,
   };
+
+  // The user / system disables a column
+  React.useEffect(() => {
+    setHiddenColumns(hiddenColumns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(hiddenColumns), setHiddenColumns]);
 
   // The user has manually changed the pageIndex.
   React.useEffect(() => {
@@ -210,7 +224,10 @@ export const GridTable = <T extends object>({
         {headerGroups.map((headerGroup) => (
           <div className="rh" {...headerGroup.getHeaderGroupProps()}>
             {headerGroup.headers.map((column) => (
-              <div {...column.getHeaderProps(column.getSortByToggleProps())}>
+              <div
+                {...column.getHeaderProps(column.getSortByToggleProps())}
+                className={`h-${column.id}`}
+              >
                 {column.render('Header') as unknown as React.ReactNode}
                 <SortIndicator column={column} />
               </div>

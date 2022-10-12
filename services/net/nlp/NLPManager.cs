@@ -125,8 +125,11 @@ public class NLPManager : ServiceManager<NLPOptions>
     {
         if (_consumer == null || _notRunning.Contains(_consumer.Status))
         {
+            // Make sure the prior task is cancelled before creating a new one.
+            if (_cancelToken?.IsCancellationRequested == false)
+                _cancelToken?.Cancel();
             _cancelToken = new CancellationTokenSource();
-            _consumer = Task.Factory.StartNew(() => ConsumerHandler(), _cancelToken.Token);
+            _consumer = Task.Run(ConsumerHandlerAsync, _cancelToken.Token);
         }
     }
 
@@ -134,12 +137,12 @@ public class NLPManager : ServiceManager<NLPOptions>
     /// Keep consuming messages from Kafka until the service stops running.
     /// </summary>
     /// <returns></returns>
-    private async Task ConsumerHandler()
+    private async Task ConsumerHandlerAsync()
     {
         while (this.State.Status == ServiceStatus.Running &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            await this.Consumer.ConsumeAsync(HandleMessageAsync);
+            await this.Consumer.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
         }
 
         // The service is stopping or has stopped, consume should stop too.
@@ -190,38 +193,41 @@ public class NLPManager : ServiceManager<NLPOptions>
     /// <returns></returns>
     private async Task<ConsumerAction> HandleMessageAsync(ConsumeResult<string, NLPRequest> result)
     {
-        try
+        // The service has stopped, so to should consuming messages.
+        if (this.State.Status != ServiceStatus.Running)
         {
-            // The service has stopped, so to should consuming messages.
-            if (this.State.Status != ServiceStatus.Running)
-            {
-                this.Consumer.Stop();
-                this.State.Stop();
-            }
-
-            var content = await _api.FindContentByIdAsync(result.Message.Value.ContentId);
-            if (content != null)
-            {
-                await UpdateContentAsync(content);
-                await SendIndexingRequest(content);
-            }
-            else
-            {
-                // Identify requests for transcription for content that does not exist.
-                this.Logger.LogWarning("Content does not exist for this message. Key: {Key}, Content ID: {ContentId}", result.Message.Key, result.Message.Value.ContentId);
-            }
-
-            // Successful run clears any errors.
-            this.State.ResetFailures();
-            _retries = 0;
-            return ConsumerAction.Proceed;
+            this.Consumer.Stop();
+            this.State.Stop();
+            return ConsumerAction.Stop;
         }
-        catch (HttpClientRequestException ex)
+        else
         {
-            this.Logger.LogError(ex, "HTTP exception while consuming. {response}", ex.Data["body"] ?? "");
-        }
+            try
+            {
+                var content = await _api.FindContentByIdAsync(result.Message.Value.ContentId);
+                if (content != null)
+                {
+                    await UpdateContentAsync(content);
+                    await SendIndexingRequest(content);
+                }
+                else
+                {
+                    // Identify requests for transcription for content that does not exist.
+                    this.Logger.LogWarning("Content does not exist for this message. Key: {Key}, Content ID: {ContentId}", result.Message.Key, result.Message.Value.ContentId);
+                }
 
-        return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
+                // Successful run clears any errors.
+                this.State.ResetFailures();
+                _retries = 0;
+                return ConsumerAction.Proceed;
+            }
+            catch (HttpClientRequestException ex)
+            {
+                this.Logger.LogError(ex, "HTTP exception while consuming. {response}", ex.Data["body"] ?? "");
+            }
+
+            return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
+        }
     }
 
     /// <summary>
@@ -231,7 +237,7 @@ public class NLPManager : ServiceManager<NLPOptions>
     /// <returns></returns>
     private async Task UpdateContentAsync(ContentModel content)
     {
-        this.Logger.LogInformation("Transcription requested.  Content ID: {Id}", content.Id);
+        this.Logger.LogInformation("NLP requested.  Content ID: {Id}", content.Id);
 
         var labels = await RequestNlpAsync(content); // TODO: Extract language from data source.
 

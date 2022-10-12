@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TNO.DAL.Extensions;
@@ -8,11 +9,20 @@ using TNO.Entities.Models;
 
 namespace TNO.DAL.Services;
 
+/// <summary>
+/// ContentService class, provides the Data Access Layer (DAL) service for interacting with content with the database.
+/// </summary>
 public class ContentService : BaseService<Content, long>, IContentService
 {
     #region Properties
     #endregion
-
+    /// <summary>
+    /// Creates a new instance of a ContentService object, initializes with specified parameters.
+    /// </summary>
+    /// <param name="dbContext"></param>
+    /// <param name="principal"></param>
+    /// <param name="serviceProvider"></param>
+    /// <param name="logger"></param>
     #region Constructors
     public ContentService(TNOContext dbContext,
         ClaimsPrincipal principal,
@@ -23,7 +33,11 @@ public class ContentService : BaseService<Content, long>, IContentService
     #endregion
 
     #region Methods
-
+    /// <summary>
+    /// Find content that matches the specified 'filter'.
+    /// </summary>
+    /// <param name="filter">Filter to apply to the query.</param>
+    /// <returns>A page of content items that match the filter.</returns>
     public IPaged<Content> Find(ContentFilter filter)
     {
         var query = this.Context.Contents
@@ -48,8 +62,6 @@ public class ContentService : BaseService<Content, long>, IContentService
 
         if (!String.IsNullOrWhiteSpace(filter.Edition))
             query = query.Where(c => c.PrintContent != null && EF.Functions.Like(c.PrintContent.Edition.ToLower(), $"%{filter.Edition.ToLower()}%"));
-        if (!String.IsNullOrWhiteSpace(filter.StoryType))
-            query = query.Where(c => c.PrintContent != null && EF.Functions.Like(c.PrintContent.StoryType.ToLower(), $"%{filter.StoryType.ToLower()}%"));
         if (!String.IsNullOrWhiteSpace(filter.Byline))
             query = query.Where(c => c.PrintContent != null && EF.Functions.Like(c.PrintContent.Byline.ToLower(), $"%{filter.Byline.ToLower()}%"));
 
@@ -57,6 +69,9 @@ public class ContentService : BaseService<Content, long>, IContentService
             query = query.Where(c => c.ContentType == filter.ContentType);
         if (filter.Status.HasValue)
             query = query.Where(c => c.Status == filter.Status);
+
+        if (filter.IncludedInCategory.HasValue)
+            query = query.Where(c => c.CategoriesManyToMany.Any());
 
         if (filter.ProductId.HasValue)
             query = query.Where(c => c.ProductId == filter.ProductId);
@@ -114,7 +129,7 @@ public class ContentService : BaseService<Content, long>, IContentService
             }
         }
         else
-            query = query.OrderByDescending(c => c.Id);
+            query = query.OrderByDescending(c => c.PublishedOn).ThenByDescending(c => c.Id);
 
         var skip = (filter.Page - 1) * filter.Quantity;
         query = query.Skip(skip).Take(filter.Quantity);
@@ -168,17 +183,35 @@ public class ContentService : BaseService<Content, long>, IContentService
         return query.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Add the specified 'entity' to the database
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <returns></returns>
     public override Content Add(Content entity)
     {
         entity.AddToContext(this.Context);
         base.Add(entity);
+
+        // Ensure all content has a UID.
+        if (entity.GuaranteeUid())
+            base.Update(entity);
+
         return entity;
     }
 
+    /// <summary>
+    /// Update the specified 'entity' in the database.
+    /// </summary>
+    /// <param name="entity"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    /// TODO: Switch to not found exception throughout services.
     public override Content Update(Content entity)
     {
         var original = FindById(entity.Id) ?? throw new InvalidOperationException("Entity does not exist");
         this.Context.UpdateContext(original, entity);
+        entity.GuaranteeUid();
         base.Update(original);
         return original;
     }

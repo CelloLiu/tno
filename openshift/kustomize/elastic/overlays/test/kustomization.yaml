@@ -15,6 +15,13 @@ patches:
         path: /spec/host
         value: tno-test.apps.silver.devops.gov.bc.ca
   - target:
+      kind: Route
+      name: elastic-dejavu
+    patch: |-
+      - op: replace
+        path: /spec/host
+        value: tno-test-elastic.apps.silver.devops.gov.bc.ca
+  - target:
       kind: StatefulSet
       name: elastic
     patch: |-
@@ -26,10 +33,10 @@ patches:
         value: 10m
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 500Mi
+        value: 850Mi
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/cpu
         value: 100m
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 2Gi
+        value: 1500Mi

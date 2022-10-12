@@ -7,13 +7,13 @@ metadata:
   namespace: default
   annotations:
     description: Defines how to deploy image-service
+    created-by: jeremy.foster, alessia.yanchen
   labels:
     name: image-service
     part-of: tno
     version: 1.0.0
     component: image-service
     managed-by: kustomize
-    created-by: jeremy.foster
 spec:
   replicas: 1
   selector:
@@ -40,9 +40,11 @@ spec:
         - name: av-storage
           persistentVolumeClaim:
             claimName: av-storage
-        - name: ssh-key 
-          secret:  
+        - name: ssh-key
+          secret:
             secretName: ssh-key # name of the Secret
+            optional: false
+            defaultMode: 420
       containers:
         - name: image-service
           image: ""
@@ -52,8 +54,8 @@ spec:
               protocol: TCP
           volumeMounts:
             - name: av-storage
-              mountPath: /data  
-            - name: ssh-key  
+              mountPath: /data
+            - name: ssh-key
               mountPath: /keys
               readOnly: true
           resources:
@@ -114,16 +116,11 @@ spec:
                 configMapKeyRef:
                   name: image-service
                   key: TOPICS
-            - name: Service__NotificationTopic
-              valueFrom:
-                configMapKeyRef:
-                  name: image-service
-                  key: NOTIFICATION_TOPIC
             - name: Service__PrivateKeysPath
               valueFrom:
                 configMapKeyRef:
                   name: image-service
-                  key: ../keys
+                  key: KEY_PATH
             - name: Service__PrivateKeyFileName
               valueFrom:
                 secretKeyRef:

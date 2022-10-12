@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Claim, NavBarGroup, NavBarItem, Show } from 'tno-core';
 import { Row } from 'tno-core/dist/components/flex/row';
 
@@ -7,8 +7,37 @@ import { Row } from 'tno-core/dist/components/flex/row';
  */
 export const NavBar: React.FC = () => {
   const [activeHover, setActiveHover] = useState<string>('');
+
+  const hideRef = useRef(false);
+  const ref = useRef<any>();
+
+  useEffect(() => {
+    document.addEventListener('click', handleClickOutside, false);
+    return () => {
+      document.removeEventListener('click', handleClickOutside, false);
+    };
+  });
+
+  const onMouseOver = () => {
+    hideRef.current = false;
+  };
+
+  const onMouseLeave = () => {
+    hideRef.current = true;
+    setTimeout(() => {
+      if (hideRef.current) setActiveHover('');
+    }, 2000);
+  };
+
+  const handleClickOutside = (event: { target: any }) => {
+    if (ref.current && !ref.current.contains(event.target)) {
+      hideRef.current = true;
+      setActiveHover('');
+    }
+  };
+
   return (
-    <div onMouseLeave={() => setActiveHover('')}>
+    <div onMouseLeave={onMouseLeave} onMouseOver={onMouseOver} ref={ref}>
       <NavBarGroup className="navbar">
         <Row>
           <div className="editor" onMouseOver={() => setActiveHover('editor')}>
@@ -41,7 +70,7 @@ export const NavBar: React.FC = () => {
         <Row hidden={!activeHover}>
           {/* Editor */}
           <Show visible={activeHover === 'editor'}>
-            <NavBarItem navigateTo="/contents" label="Snippets" claim={Claim.editor} />
+            <NavBarItem navigateTo="/contents" label="Content" claim={Claim.editor} />
             <NavBarItem navigateTo="/storage" label="Storage" claim={Claim.editor} />
             <NavBarItem
               navigateTo="/contents/log"
@@ -65,16 +94,16 @@ export const NavBar: React.FC = () => {
             <NavBarItem navigateTo="/admin/licenses" label="Licenses" claim={Claim.administrator} />
             <NavBarItem navigateTo="/admin/actions" label="Actions" claim={Claim.administrator} />
             <NavBarItem
-              navigateTo="/admin/media/types"
-              label="Media Types"
-              claim={Claim.administrator}
-            />
-            <NavBarItem
               navigateTo="/admin/connections"
               label="Connections"
               claim={Claim.administrator}
             />
             <NavBarItem navigateTo="/admin/ingests" label="Ingest" claim={Claim.administrator} />
+            <NavBarItem
+              navigateTo="/admin/ingest/types"
+              label="Ingest Types"
+              claim={Claim.administrator}
+            />
           </Show>
 
           {/* Reports */}

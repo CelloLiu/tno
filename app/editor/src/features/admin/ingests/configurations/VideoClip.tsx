@@ -20,13 +20,13 @@ export const VideoClip: React.FC = (props) => {
   const timeZone = TimeZones.find((t) => t.value === values.configuration.timeZone);
 
   return (
-    <styled.MediaType>
+    <styled.IngestType>
       <FormikSelect
         label="Timezone"
         name="configuration.timeZone"
         tooltip="Timezone of the source"
         options={TimeZones}
-        defaultValue={timeZone}
+        value={timeZone}
       />
       <FormikText
         label="Format"
@@ -34,6 +34,7 @@ export const VideoClip: React.FC = (props) => {
         tooltip="Format of the clip"
         placeholder="mp4"
       />
+      <p>Use "{'{schedule.Name}'}.mp4" to name the file with the schedule name.</p>
       <FormikText
         label="File Name"
         name="configuration.fileName"
@@ -78,6 +79,6 @@ export const VideoClip: React.FC = (props) => {
           setFieldValue('configuration.throwOnMissingFile', e.currentTarget.checked);
         }}
       />
-    </styled.MediaType>
+    </styled.IngestType>
   );
 };

@@ -1,7 +1,7 @@
 import { Checkbox, IOptionItem, OptionItem, RadioGroup, Select, SelectDate } from 'components/form';
+import { useTooltips } from 'hooks';
 import { ContentTypeName, IContentModel } from 'hooks/api-editor';
 import React from 'react';
-import ReactTooltip from 'react-tooltip';
 import { useContent, useLookup } from 'store/hooks';
 import { initialContentState } from 'store/slices';
 import { Button, ButtonVariant, FieldSize, Loader, Text } from 'tno-core';
@@ -14,32 +14,29 @@ import { IContentListFilter } from './interfaces';
 import * as styled from './styled';
 
 export interface IContentFilterProps {
+  /** Function to call when the filter changes. */
   search: (filter: IContentListFilter) => Promise<Page<IContentModel>>;
-  onReady?: (isReady: boolean) => void;
-  updated?: boolean;
-  setUpdated?: (updated: boolean) => void;
 }
 
-export const ContentFilter: React.FC<IContentFilterProps> = ({
-  search,
-  onReady,
-  updated,
-  setUpdated,
-}) => {
-  const [{ products, mediaTypes, users }] = useLookup();
+/**
+ * ContentFilter component provides a filter form to update the search results.
+ * There are two types of filters (standard, advanced).
+ * The standard filter will execute the 'search' function immediately on a change.
+ * The advanced filter will execute the 'search' function only when requested by the user.
+ * @param param0 Component properties.
+ * @returns Component.
+ */
+export const ContentFilter: React.FC<IContentFilterProps> = ({ search }) => {
+  const [{ products, ingestTypes, users }] = useLookup();
   const [{ filter, filterAdvanced }, { storeFilter, storeFilterAdvanced }] = useContent();
   const [advancedHover, setAdvancedHover] = React.useState(false);
+  useTooltips();
 
   const [productOptions, setProductOptions] = React.useState<IOptionItem[]>([]);
   const [userOptions, setUserOptions] = React.useState<IOptionItem[]>([]);
-  const [timeframe, setTimeframe] = React.useState(timeFrames[Number(filter.timeFrame)]);
-
-  React.useEffect(() => {
-    if (!!updated) {
-      search({ ...filter, pageIndex: 0, ...filterAdvanced });
-      setUpdated && setUpdated(false);
-    }
-  }, [updated, filter, storeFilterAdvanced, search, setUpdated, filterAdvanced]);
+  const [timeFrame, setTimeFrame] = React.useState<IOptionItem>(
+    timeFrames[Number(filter.timeFrame)],
+  );
 
   React.useEffect(() => {
     setProductOptions(getSortableOptions(products, [new OptionItem<number>('Any', 0)]));
@@ -53,10 +50,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
       ),
     );
   }, [users]);
-
-  React.useEffect(() => {
-    onReady?.(!!users.length && !!products.length && !!mediaTypes.length);
-  }, [users, products, mediaTypes, onReady]);
 
   /** Handle enter key pressed for advanced filter */
   React.useEffect(() => {
@@ -74,26 +67,24 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
     };
   }, [filter, filterAdvanced, search, advancedHover]);
 
-  React.useEffect(() => {
-    ReactTooltip.rebuild();
-  });
-
-  const handleTimeChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const value = +e.target.value;
-    const timeFrame = timeFrames.find((tf) => tf.value === value);
-    setTimeframe(timeframe);
-    setUpdated && setUpdated(true);
+  // Convert the selected option into the value.
+  const handleTimeChange: React.ChangeEventHandler<HTMLInputElement> = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    values?: IOptionItem,
+  ) => {
+    const value = values ?? timeFrame;
+    setTimeFrame(value);
     storeFilter({
       ...filter,
       pageIndex: 0,
-      timeFrame: timeFrame?.value ?? 0,
+      timeFrame: +`${value.value ?? 0}`,
     });
   };
 
   return (
     <styled.ContentFilter className="content-filter">
       <div>
-        <Loader size="5em" visible={!users.length || !products.length || !mediaTypes.length} />
+        <Loader size="5em" visible={!users.length || !products.length || !ingestTypes.length} />
         <Select
           name="productId"
           label="Product Designation"
@@ -101,7 +92,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
           value={productOptions.find((mt) => mt.value === filter.productId)}
           defaultValue={productOptions[0]}
           onChange={(newValue) => {
-            setUpdated && setUpdated(true);
             var productId = (newValue as IOptionItem).value ?? 0;
             storeFilter({
               ...filter,
@@ -117,7 +107,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
           value={userOptions.find((u) => u.value === filter.userId)}
           onChange={(newValue) => {
             var userId = (newValue as IOptionItem).value ?? '';
-            setUpdated && setUpdated(true);
             storeFilter({
               ...filter,
               pageIndex: 0,
@@ -130,7 +119,7 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
           label="Time Frame"
           direction="col-row"
           tooltip="Date created"
-          value={timeframe}
+          value={timeFrame}
           options={timeFrames}
           onChange={handleTimeChange}
           disabled={!!filterAdvanced.startDate || !!filterAdvanced.endDate}
@@ -143,29 +132,26 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
                 name="isPrintContent"
                 label="Print Content"
                 tooltip="Newspaper content without audio/video"
-                value={filter.printContent}
-                checked={filter.printContent}
+                checked={filter.contentType === ContentTypeName.PrintContent}
                 onChange={(e) => {
-                  setUpdated && setUpdated(true);
                   storeFilter({
                     ...filter,
                     pageIndex: 0,
-                    printContent: e.target.checked,
                     contentType: e.target.checked ? ContentTypeName.PrintContent : undefined,
                   });
                 }}
               />
               <Checkbox
-                name="included"
+                name="includedInCategory"
                 label="Included in EoD"
                 tooltip="Content included in Event of the Day"
-                value="Included"
-                checked={filter.included !== ''}
+                value={filter.includedInCategory}
+                checked={filter.includedInCategory}
                 onChange={(e) => {
                   storeFilter({
                     ...filter,
                     pageIndex: 0,
-                    included: e.target.checked ? e.target.value : '',
+                    includedInCategory: e.target.checked,
                   });
                 }}
               />
@@ -181,7 +167,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
                     pageIndex: 0,
                     onTicker: e.target.checked ? e.target.value : '',
                   });
-                  setUpdated && setUpdated(true);
                 }}
               />
             </div>
@@ -193,7 +178,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
                 tooltip="Content identified as commentary"
                 checked={filter.commentary !== ''}
                 onChange={(e) => {
-                  setUpdated && setUpdated(true);
                   storeFilter({
                     ...filter,
                     pageIndex: 0,
@@ -208,7 +192,6 @@ export const ContentFilter: React.FC<IContentFilterProps> = ({
                 tooltip="Content identified as a top story"
                 checked={filter.topStory !== ''}
                 onChange={(e) => {
-                  setUpdated && setUpdated(true);
                   storeFilter({
                     ...filter,
                     pageIndex: 0,
