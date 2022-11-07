@@ -8,10 +8,15 @@ using MimeTypes;
 using TNO.API.Areas.Editor.Models.Lookup;
 using TNO.API.Areas.Services.Models.Content;
 using TNO.API.Areas.Services.Models.ContentReference;
-using TNO.API.Areas.Services.Models.Ingest;
+using DataLocationModels = TNO.API.Areas.Services.Models.DataLocation;
+using IngestModels = TNO.API.Areas.Services.Models.Ingest;
+using TNO.API.Areas.Services.Models.WorkOrder;
 using TNO.Core.Exceptions;
 using TNO.Core.Http;
+using TNO.Kafka.Models;
 using TNO.Services.Config;
+using TNO.API.Areas.Kafka.Models;
+using TNO.Core.Extensions;
 
 namespace TNO.Services;
 
@@ -41,20 +46,40 @@ public class ApiService : IApiService
     }
     #endregion
 
+    #region data location Methods
+    /// <summary>
+    /// Make an AJAX request to the api to get the data location for the specified 'name'.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    public async Task<DataLocationModels.DataLocationModel?> GetDataLocationAsync(string name)
+    {
+        var url = _options.ApiUrl.Append($"services/data/locations/{name}");
+        var response = await _client.GetAsync(url);
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<DataLocationModels.DataLocationModel>(_serializerOptions),
+            HttpStatusCode.NoContent => null,
+            _ => throw new HttpClientRequestException(response),
+        };
+    }
+    #endregion
+
     #region Connection Methods
     /// <summary>
     /// Make an AJAX request to the api to get the connection.
     /// </summary>
     /// <param name="id"></param>
     /// <returns></returns>
-    public async Task<ConnectionModel?> GetConnectionAsync(int id)
+    public async Task<IngestModels.ConnectionModel?> GetConnectionAsync(int id)
     {
-        var url = new Uri(_options.ApiUrl, $"services/connections/{id}");
+        var url = _options.ApiUrl.Append($"services/connections/{id}");
         var response = await _client.GetAsync(url);
 
         return response.StatusCode switch
         {
-            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<ConnectionModel>(_serializerOptions),
+            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<IngestModels.ConnectionModel>(_serializerOptions),
             HttpStatusCode.NoContent => null,
             _ => throw new HttpClientRequestException(response),
         };
@@ -66,11 +91,11 @@ public class ApiService : IApiService
     /// Make an AJAX request to the api to fetch all sources.
     /// </summary>
     /// <returns></returns>
-    public async Task<IEnumerable<SourceModel>> GetSourcesAsync()
+    public async Task<IEnumerable<IngestModels.SourceModel>> GetSourcesAsync()
     {
-        var url = new Uri(_options.ApiUrl, $"services/sources");
-        var result = await _client.GetAsync<SourceModel[]>(url);
-        return result ?? Array.Empty<SourceModel>();
+        var url = _options.ApiUrl.Append($"services/sources");
+        var result = await _client.GetAsync<IngestModels.SourceModel[]>(url);
+        return result ?? Array.Empty<IngestModels.SourceModel>();
     }
 
     /// <summary>
@@ -78,14 +103,14 @@ public class ApiService : IApiService
     /// </summary>
     /// <param name="code"></param>
     /// <returns></returns>
-    public async Task<SourceModel?> GetSourceForCodeAsync(string code)
+    public async Task<IngestModels.SourceModel?> GetSourceForCodeAsync(string code)
     {
-        var url = new Uri(_options.ApiUrl, $"services/sources/{code}");
+        var url = _options.ApiUrl.Append($"services/sources/{code}");
         var response = await _client.GetAsync(url);
 
         return response.StatusCode switch
         {
-            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<SourceModel>(_serializerOptions),
+            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<IngestModels.SourceModel>(_serializerOptions),
             HttpStatusCode.NoContent => null,
             _ => throw new HttpClientRequestException(response),
         };
@@ -98,14 +123,14 @@ public class ApiService : IApiService
     /// </summary>
     /// <param name="id"></param>
     /// <returns></returns>
-    public async Task<IngestModel?> GetIngestAsync(int id)
+    public async Task<IngestModels.IngestModel?> GetIngestAsync(int id)
     {
-        var url = new Uri(_options.ApiUrl, $"services/ingests/{id}");
+        var url = _options.ApiUrl.Append($"services/ingests/{id}");
         var response = await _client.GetAsync(url);
 
         return response.StatusCode switch
         {
-            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<IngestModel>(_serializerOptions),
+            HttpStatusCode.OK => await response.Content.ReadFromJsonAsync<IngestModels.IngestModel>(_serializerOptions),
             HttpStatusCode.NoContent => null,
             _ => throw new HttpClientRequestException(response),
         };
@@ -115,11 +140,11 @@ public class ApiService : IApiService
     /// Make an AJAX request to the api to fetch all ingests.
     /// </summary>
     /// <returns></returns>
-    public async Task<IEnumerable<IngestModel>> GetIngestsAsync()
+    public async Task<IEnumerable<IngestModels.IngestModel>> GetIngestsAsync()
     {
-        var url = new Uri(_options.ApiUrl, $"services/ingests");
-        var result = await _client.GetAsync<IngestModel[]>(url);
-        return result ?? Array.Empty<IngestModel>();
+        var url = _options.ApiUrl.Append($"services/ingests");
+        var result = await _client.GetAsync<IngestModels.IngestModel[]>(url);
+        return result ?? Array.Empty<IngestModels.IngestModel>();
     }
 
     /// <summary>
@@ -127,11 +152,11 @@ public class ApiService : IApiService
     /// </summary>
     /// <param name="ingestType"></param>
     /// <returns></returns>
-    public async Task<IEnumerable<IngestModel>> GetIngestsForIngestTypeAsync(string ingestType)
+    public async Task<IEnumerable<IngestModels.IngestModel>> GetIngestsForIngestTypeAsync(string ingestType)
     {
-        var url = new Uri(_options.ApiUrl, $"services/ingests/for/ingest/type/{ingestType}");
-        var result = await _client.GetAsync<IngestModel[]>(url);
-        return result ?? Array.Empty<IngestModel>();
+        var url = _options.ApiUrl.Append($"services/ingests/for/ingest/type/{ingestType}");
+        var result = await _client.GetAsync<IngestModels.IngestModel[]>(url);
+        return result ?? Array.Empty<IngestModels.IngestModel>();
     }
 
     /// <summary>
@@ -139,11 +164,11 @@ public class ApiService : IApiService
     /// </summary>
     /// <param name="topic"></param>
     /// <returns></returns>
-    public async Task<IEnumerable<IngestModel>> GetIngestsForTopicAsync(string topic)
+    public async Task<IEnumerable<IngestModels.IngestModel>> GetIngestsForTopicAsync(string topic)
     {
-        var url = new Uri(_options.ApiUrl, $"services/ingests/for/topic/{topic}");
-        var result = await _client.GetAsync<IngestModel[]>(url);
-        return result ?? Array.Empty<IngestModel>();
+        var url = _options.ApiUrl.Append($"services/ingests/for/topic/{topic}");
+        var result = await _client.GetAsync<IngestModels.IngestModel[]>(url);
+        return result ?? Array.Empty<IngestModels.IngestModel>();
     }
 
     /// <summary>
@@ -151,10 +176,10 @@ public class ApiService : IApiService
     /// </summary>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    public async Task<IngestModel?> UpdateIngestAsync(IngestModel ingest)
+    public async Task<IngestModels.IngestModel?> UpdateIngestAsync(IngestModels.IngestModel ingest)
     {
-        var url = new Uri(_options.ApiUrl, $"services/ingests/{ingest.Id}");
-        return await _client.PutAsync<IngestModel>(url, JsonContent.Create(ingest));
+        var url = _options.ApiUrl.Append($"services/ingests/{ingest.Id}");
+        return await _client.PutAsync<IngestModels.IngestModel>(url, JsonContent.Create(ingest));
     }
     #endregion
 
@@ -167,7 +192,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentReferenceModel?> FindContentReferenceAsync(string source, string uid)
     {
-        var url = new Uri(_options.ApiUrl, $"services/content/references/{source}?uid={uid}");
+        var url = _options.ApiUrl.Append($"services/content/references/{source}?uid={uid}");
         var response = await _client.GetAsync(url);
 
         return response.StatusCode switch
@@ -185,7 +210,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentReferenceModel?> AddContentReferenceAsync(ContentReferenceModel contentReference)
     {
-        var url = new Uri(_options.ApiUrl, $"services/content/references");
+        var url = _options.ApiUrl.Append($"services/content/references");
         return await _client.PostAsync<ContentReferenceModel>(url, JsonContent.Create(contentReference));
     }
 
@@ -196,7 +221,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentReferenceModel?> UpdateContentReferenceAsync(ContentReferenceModel contentReference)
     {
-        var url = new Uri(_options.ApiUrl, $"services/content/references/{contentReference.Source}?uid={contentReference.Uid}");
+        var url = _options.ApiUrl.Append($"services/content/references/{contentReference.Source}?uid={contentReference.Uid}");
         return await _client.PutAsync<ContentReferenceModel>(url, JsonContent.Create(contentReference));
     }
     #endregion
@@ -210,7 +235,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentModel?> FindContentByUidAsync(string uid, string? source)
     {
-        var url = new Uri(_options.ApiUrl, $"services/contents/find?uid={uid}&source={source}");
+        var url = _options.ApiUrl.Append($"services/contents/find?uid={uid}&source={source}");
         return await _client.GetAsync<ContentModel?>(url);
     }
 
@@ -221,7 +246,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentModel?> FindContentByIdAsync(long id)
     {
-        var url = new Uri(_options.ApiUrl, $"services/contents/{id}");
+        var url = _options.ApiUrl.Append($"services/contents/{id}");
         return await _client.GetAsync<ContentModel?>(url);
     }
 
@@ -232,7 +257,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentModel?> AddContentAsync(ContentModel content)
     {
-        var url = new Uri(_options.ApiUrl, $"services/contents");
+        var url = _options.ApiUrl.Append($"services/contents");
         return await _client.PostAsync<ContentModel>(url, JsonContent.Create(content));
     }
 
@@ -246,7 +271,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentModel?> UploadFileAsync(long contentId, long version, Stream file, string fileName)
     {
-        var url = new Uri(_options.ApiUrl, $"services/contents/{contentId}/upload?version={version}");
+        var url = _options.ApiUrl.Append($"services/contents/{contentId}/upload?version={version}");
         var fileContent = new StreamContent(file);
         var ext = Path.GetExtension(fileName).Replace(".", "");
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeMap.GetMimeType(ext));
@@ -264,7 +289,7 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<ContentModel?> UpdateContentAsync(ContentModel content)
     {
-        var url = new Uri(_options.ApiUrl, $"editor/contents/{content.Id}");
+        var url = _options.ApiUrl.Append($"editor/contents/{content.Id}");
         return await _client.PutAsync<ContentModel>(url, JsonContent.Create(content));
     }
     #endregion
@@ -276,8 +301,46 @@ public class ApiService : IApiService
     /// <returns></returns>
     public async Task<LookupModel?> GetLookupsAsync()
     {
-        var url = new Uri(_options.ApiUrl, $"editor/lookups");
+        var url = _options.ApiUrl.Append($"editor/lookups");
         return await _client.GetAsync<LookupModel>(url);
+    }
+    #endregion
+
+    #region Work Orders
+    /// <summary>
+    /// Make an AJAX request to the api to get the work order for the specified 'id'.
+    /// </summary>
+    /// <param name="id"></param>
+    /// <returns></returns>
+    public async Task<WorkOrderModel?> FindWorkOrderAsync(long id)
+    {
+        var url = _options.ApiUrl.Append($"services/work/orders/{id}");
+        return await _client.GetAsync<WorkOrderModel>(url);
+    }
+
+    /// <summary>
+    /// Make an AJAX request to the aip and update the specified 'workOrder'.
+    /// </summary>
+    /// <param name="workOrder"></param>
+    /// <returns></returns>
+    public async Task<WorkOrderModel?> UpdateWorkOrderAsync(WorkOrderModel workOrder)
+    {
+        var url = _options.ApiUrl.Append($"services/work/orders/{workOrder.Id}");
+        return await _client.PutAsync<WorkOrderModel>(url, JsonContent.Create(workOrder));
+    }
+    #endregion
+
+    #region Kafka
+    /// <summary>
+    /// Publish content to Kafka.
+    /// </summary>
+    /// <param name="topic"></param>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    public async Task<DeliveryResultModel<SourceContent>?> SendMessageAsync(string topic, SourceContent content)
+    {
+        var url = _options.ApiUrl.Append($"kafka/producers/content/{topic}");
+        return await _client.PostAsync<DeliveryResultModel<SourceContent>>(url, JsonContent.Create(content));
     }
     #endregion
 }

@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 
 namespace TNO.Core.Extensions;
 
@@ -269,5 +267,92 @@ public static class StringExtensions
             .Replace("\n", " ", true, null)
             .Replace(pEndingTagReplacer, "\n\n")
             .Trim();
+    }
+
+    /// <summary>
+    /// remove specified tags.
+    /// </summary>
+    /// <param name="articleContent">HTML encoded news article</param>
+    /// <param name="tagName">html tag that needs to be removed, for example, <p>|</p> for paragraph tags</param>
+    /// <param name="replaceString">replacement</param>
+    /// <returns>Article text only with specified tags removed</returns>
+    public static string SanitizeContent(string articleContent, string tagName, string replaceString = "")
+    {
+        Regex rgx = new Regex(tagName);
+        var res = rgx.Replace(articleContent, replaceString).Trim();
+        // remove extra news lines
+        res = Regex.Replace(res, @"^\s+$[" + Environment.NewLine + "]*", string.Empty, System.Text.RegularExpressions.RegexOptions.Multiline);
+        return res;
+    }
+
+    /// <summary>
+    /// Perform a Path.Combine but with the specified directory separator.
+    /// This is required if services are running in a different OS than other services.
+    /// </summary>
+    /// <param name="path1"></param>
+    /// <param name="path2"></param>
+    /// <param name="directorySeparatorChar"></param>
+    /// <returns></returns>
+    public static string CombineWith(this string path1, string path2, char directorySeparatorChar)
+    {
+        return Path.Combine(path1, path2).Replace(Path.DirectorySeparatorChar, directorySeparatorChar);
+    }
+
+    /// <summary>
+    /// Perform a Path.Combine but with the specified directory separator.
+    /// This is required if services are running in a different OS than other services.
+    /// </summary>
+    /// <param name="path1"></param>
+    /// <param name="path2"></param>
+    /// <param name="path3"></param>
+    /// <param name="directorySeparatorChar"></param>
+    /// <returns></returns>
+    public static string CombineWith(this string path1, string path2, string path3, char directorySeparatorChar)
+    {
+        return Path.Combine(path1, path2, path3).Replace(Path.DirectorySeparatorChar, directorySeparatorChar);
+    }
+
+    /// <summary>
+    /// Perform a Path.Combine but with the specified directory separator.
+    /// This is required if services are running in a different OS than other services.
+    /// </summary>
+    /// <param name="path1"></param>
+    /// <param name="path2"></param>
+    /// <param name="path3"></param>
+    /// <param name="path4"></param>
+    /// <param name="directorySeparatorChar"></param>
+    /// <returns></returns>
+    public static string CombineWith(this string path1, string path2, string path3, string path4, char directorySeparatorChar)
+    {
+        return Path.Combine(path1, path2, path3, path4).Replace(Path.DirectorySeparatorChar, directorySeparatorChar);
+    }
+
+    /// <summary>
+    /// Perform a Path.Combine but with the specified directory separator.
+    /// This is required if services are running in a different OS than other services.
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="directorySeparatorChar"></param>
+    /// <param name="paths"></param>
+    /// <returns></returns>
+    public static string CombineWith(this string path, params string[] paths)
+    {
+        return path.CombineWith(Path.AltDirectorySeparatorChar, paths);
+    }
+
+    /// <summary>
+    /// Perform a Path.Combine but with the specified directory separator.
+    /// This is required if services are running in a different OS than other services.
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="directorySeparatorChar"></param>
+    /// <param name="paths"></param>
+    /// <returns></returns>
+    public static string CombineWith(this string path, char directorySeparatorChar, params string[] paths)
+    {
+        var values = new string[paths.Length + 1];
+        values[0] = path;
+        paths.CopyTo(values, 1);
+        return Path.Combine(values).Replace(Path.DirectorySeparatorChar, directorySeparatorChar);
     }
 }

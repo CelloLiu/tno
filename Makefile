@@ -134,15 +134,11 @@ renew: ## Refresh all relevant services that were impacted by prior Pull Request
 	@make db-refresh
 	@make refresh n=api
 	@make refresh n=editor
-	@make rebuild n=capture
-	@make rebuild n=clip
-	@make rebuild n=syndication
-	@make rebuild n=image
-	@make rebuild n=filemonitor
-	@make rebuild n=content
-	@make rebuild n=nlp
-	@make rebuild n=indexing
-	@make rebuild n=transcription
+	@make build n=capture
+	@make build n=clip
+	@make build n=filemonitor
+	@make build n=image
+	@make build n=content
 
 ##############################################################################
 # Database Commands

@@ -3,7 +3,7 @@ import React from 'react';
 import { IAppState, IErrorModel, useAppStore } from 'store/slices';
 import { useKeycloakWrapper } from 'tno-core';
 
-import { useApiDispatcher } from '..';
+import { useAjaxWrapper } from '..';
 import { useLookup } from '../lookup';
 
 /**
@@ -50,19 +50,19 @@ export const useApp = (): [IAppState, IAppController] => {
   const keycloak = useKeycloakWrapper();
   const [state, store] = useAppStore();
   const [, { init }] = useLookup();
-  const dispatch = useApiDispatcher();
+  const dispatch = useAjaxWrapper();
   const api = useApiAuth();
 
   const controller = React.useMemo(
     () => ({
       getUserInfo: async (refresh: boolean = false) => {
         if (userInfo.id !== 0 && !refresh) return userInfo;
-        const result = await dispatch('get-user-info', () => api.getUserInfo());
-        userInfo = result;
+        const response = await dispatch('get-user-info', () => api.getUserInfo());
+        userInfo = response.data;
         store.storeUserInfo(userInfo);
         if (
           (!keycloak.isApproved() || refresh) &&
-          (!!result.groups.length || !!result.roles.length)
+          (!!response.data.groups.length || !!response.data.roles.length)
         )
           await keycloak.instance.updateToken(86400);
         return userInfo;

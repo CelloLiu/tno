@@ -78,6 +78,11 @@ spec:
                 configMapKeyRef:
                   name: services
                   key: API_HOST_URL
+            - name: Service__DataLocation
+              valueFrom:
+                configMapKeyRef:
+                  name: services
+                  key: DATA_LOCATION
 
             - name: Auth__Keycloak__Authority
               valueFrom:
@@ -95,17 +100,11 @@ spec:
                   name: services
                   key: KEYCLOAK_CLIENT_SECRET
 
-            - name: Kafka__Producer__ClientId
+            - name: Service__VolumePath
               valueFrom:
                 configMapKeyRef:
-                  name: filemonitor-service
-                  key: KAKFA_CLIENT_ID
-            - name: Kafka__Producer__BootstrapServers
-              valueFrom:
-                configMapKeyRef:
-                  name: services
-                  key: KAFKA_BOOTSTRAP_SERVERS
-
+                  name: capture-service
+                  key: VOLUME_PATH
             - name: Service__MaxFailLimit
               valueFrom:
                 configMapKeyRef:

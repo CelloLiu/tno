@@ -8,7 +8,6 @@ using TNO.API.Areas.Services.Models.Ingest;
 using TNO.Core.Extensions;
 using TNO.Entities;
 using TNO.Kafka.Models;
-using TNO.Kafka;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
 using TNO.Models.Extensions;
@@ -25,9 +24,11 @@ namespace TNO.Services.FileMonitor;
 /// </summary>
 public class FileMonitorAction : IngestAction<FileMonitorOptions>
 {
-    #region Variables
-    private readonly IKafkaMessenger _kafka;
-    private readonly ILogger _logger;
+    #region Properties
+    /// <summary>
+    /// get - The logger for the command action.
+    /// </summary>
+    public ILogger Logger { get; private set; }
     #endregion
 
     #region Constructors
@@ -35,13 +36,11 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// Creates a new instance of a FileMonitorAction, initializes with specified parameters.
     /// </summary>
     /// <param name="api"></param>
-    /// <param name="kafka"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
-    public FileMonitorAction(IApiService api, IKafkaMessenger kafka, IOptions<FileMonitorOptions> options, ILogger<FileMonitorAction> logger) : base(api, options)
+    public FileMonitorAction(IApiService api, IOptions<FileMonitorOptions> options, ILogger<FileMonitorAction> logger) : base(api, options)
     {
-        _kafka = kafka;
-        _logger = logger;
+        this.Logger = logger;
     }
     #endregion
 
@@ -57,7 +56,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <exception cref="InvalidOperationException"></exception>
     public override async Task PerformActionAsync<T>(IIngestServiceActionManager manager, string? name = null, T? data = null, CancellationToken cancellationToken = default) where T : class
     {
-        _logger.LogDebug("Performing ingestion service action for ingest '{name}'", manager.Ingest.Name);
+        this.Logger.LogDebug("Performing ingestion service action for ingest '{name}'", manager.Ingest.Name);
 
         var dir = GetOutputPath(manager.Ingest);
 
@@ -73,7 +72,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
 
         format = !String.IsNullOrEmpty(format) ? format : "xml";
 
-        _logger.LogDebug("Parsing files for '{name}'", manager.Ingest.Name);
+        this.Logger.LogDebug("Parsing files for '{name}'", manager.Ingest.Name);
         var articles = format.ToLower() switch
         {
             "xml" => GetXmlArticles(dir, manager, sources),
@@ -91,54 +90,73 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <exception cref="ConfigurationException"></exception>
     public async Task FetchFilesFromRemoteAsync(IIngestServiceActionManager manager)
     {
-        // Extract the ingest configuration settings
-        var code = manager.Ingest.Source?.Code ?? "";
-        var filePattern = String.IsNullOrWhiteSpace(manager.Ingest.GetConfigurationValue("filePattern")) ? code : manager.Ingest.GetConfigurationValue("filePattern");
-        filePattern = filePattern.Replace("<date>", $"{GetDateTimeForTimeZone(manager.Ingest, DateTime.Now.AddDays(manager.Ingest.GetConfigurationValue<double>("dateOffset"))):yyyyMMdd}");
-        var match = new Regex(filePattern);
-        if (String.IsNullOrWhiteSpace(filePattern)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' is missing a 'filePattern'.");
-
         // Extract the source connection configuration settings.
         var remotePath = manager.Ingest.SourceConnection?.GetConfigurationValue("path");
         var username = manager.Ingest.SourceConnection?.GetConfigurationValue("username");
-        var keyFileName = manager.Ingest.SourceConnection?.GetConfigurationValue("keyFileName");
+        var keyFileName = manager.Ingest.SourceConnection?.GetConfigurationValue("keyFileName") ?? "";
         var hostname = manager.Ingest.SourceConnection?.GetConfigurationValue("hostname");
+        var password = manager.Ingest.SourceConnection?.GetConfigurationValue("password");
         if (String.IsNullOrWhiteSpace(hostname)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'hostname'.");
         if (String.IsNullOrWhiteSpace(username)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'username'.");
-        if (String.IsNullOrWhiteSpace(keyFileName)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'keyFileName'.");
+        if (String.IsNullOrWhiteSpace(keyFileName) && String.IsNullOrWhiteSpace(password)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' one of 'keyFileName' or 'password' required in source connection.");
         if (String.IsNullOrWhiteSpace(remotePath)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'path'.");
 
         // The ingest configuration may have a different path than the root connection path.
-        remotePath = Path.Combine(remotePath, manager.Ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "");
-
-        var sshKeyFile = Path.Combine(this.Options.PrivateKeysPath, keyFileName);
-
-        if (File.Exists(sshKeyFile))
+        remotePath = remotePath.CombineWith(manager.Ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "");
+        AuthenticationMethod? authMethod;
+        if (!String.IsNullOrWhiteSpace(password))
         {
-            var keyFile = new PrivateKeyFile(sshKeyFile);
-
-            var keyFiles = new[] { keyFile };
-            var connectionInfo = new ConnectionInfo(hostname,
-                                                    username,
-                                                    new PrivateKeyAuthenticationMethod(username, keyFiles));
-            using var client = new SftpClient(connectionInfo);
-            client.Connect();
-
-            var files = await FetchFileListingAsync(client, remotePath);
-            files = files.Where(f => match.Match(f.Name).Success);
-            _logger.LogDebug("{count} files were discovered that match the filter '{filter}'.", files.Count(), filePattern);
-
-            foreach (var file in files)
+            authMethod = new PasswordAuthenticationMethod(username, password);
+        }
+        else if (!String.IsNullOrWhiteSpace(keyFileName))
+        {
+            var sshKeyFile = this.Options.PrivateKeysPath.CombineWith(keyFileName);
+            if (File.Exists(sshKeyFile))
             {
-                await CopyFileAsync(client, manager.Ingest, Path.Combine(remotePath, file.Name));
+                var keyFile = new PrivateKeyFile(sshKeyFile);
+                var keyFiles = new[] { keyFile };
+                authMethod = new PrivateKeyAuthenticationMethod(username, keyFiles);
             }
+            else
+            {
+                throw new ConfigurationException($"SSH Private key file does not exist: {sshKeyFile}");
+            }
+        }
+        else throw new ConfigurationException("Data location connection settings are missing");
 
-            client.Disconnect();
-        }
-        else
+        var connectionInfo = new ConnectionInfo(hostname, username, authMethod);
+        await FetchFiles(connectionInfo, remotePath, manager);
+    }
+
+    /// <summary>
+    /// Fetch all files matching the ingest's file pattern from the remote sftp host.
+    /// </summary>
+    /// <param name="connectionInfo"></param>
+    /// <param name="remotePath"></param>
+    /// <param name="manager"></param>
+    /// <returns></returns>
+    private async Task FetchFiles(ConnectionInfo connectionInfo, string remotePath, IIngestServiceActionManager manager)
+    {
+        // Extract the ingest configuration settings
+        var code = manager.Ingest.Source?.Code ?? "";
+        var filePattern = String.IsNullOrWhiteSpace(manager.Ingest.GetConfigurationValue("filePattern")) ? code : manager.Ingest.GetConfigurationValue("filePattern");
+        if (String.IsNullOrWhiteSpace(filePattern)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' is missing a 'filePattern'.");
+        filePattern = filePattern.Replace("<date>", $"{GetDateTimeForTimeZone(manager.Ingest, DateTime.Now.AddDays(manager.Ingest.GetConfigurationValue<double>("dateOffset"))):yyyyMMdd}");
+        var match = new Regex(filePattern);
+        using var client = new SftpClient(connectionInfo);
+        client.Connect();
+
+        remotePath = remotePath.Replace("~/", $"{client.WorkingDirectory}/");
+        var files = await FetchFileListingAsync(client, remotePath);
+        files = files.Where(f => match.Match(f.Name).Success);
+        this.Logger.LogDebug("{count} files were discovered that match the filter '{filter}'.", files.Count(), filePattern);
+
+        foreach (var file in files)
         {
-            throw new ConfigurationException($"SSH Private key file does not exist: {sshKeyFile}");
+            await CopyFileAsync(client, manager.Ingest, remotePath.CombineWith(file.Name));
         }
+
+        client.Disconnect();
     }
 
     /// <summary>
@@ -149,7 +167,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <returns></returns>
     private async Task<IEnumerable<SftpFile>> FetchFileListingAsync(SftpClient client, string path)
     {
-        _logger.LogDebug("Requesting files at this path '{path}'", path);
+        this.Logger.LogDebug("Requesting files at this path '{path}'", path);
         // TODO: Fetch file from source data location.  Only continue if the image exists.
         return await Task.Factory.FromAsync<IEnumerable<SftpFile>>((callback, obj) => client.BeginListDirectory(path, callback, obj), client.EndListDirectory, null);
     }
@@ -165,7 +183,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     {
         var outputPath = GetOutputPath(ingest);
         var fileName = Path.GetFileName(pathToFile);
-        var outputFile = Path.Combine(outputPath, fileName);
+        var outputFile = outputPath.CombineWith(fileName);
 
         if (!File.Exists(outputFile))
         {
@@ -176,11 +194,11 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
             using var saveFile = File.OpenWrite(outputFile);
             await Task.Factory.FromAsync(client.BeginDownloadFile(pathToFile, saveFile), client.EndDownloadFile);
 
-            _logger.LogDebug("File copied '{file}'", pathToFile);
+            this.Logger.LogDebug("File copied '{file}'", pathToFile);
         }
         else
         {
-            _logger.LogDebug("File already exists '{file}'", pathToFile);
+            this.Logger.LogDebug("File already exists '{file}'", pathToFile);
         }
     }
 
@@ -191,7 +209,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <returns></returns>
     protected string GetOutputPath(IngestModel ingest)
     {
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd/}");
+        return this.Options.VolumePath.CombineWith(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}/");
     }
 
     /// <summary>
@@ -201,7 +219,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <returns></returns>
     protected string GetInputPath(IngestModel ingest)
     {
-        return Path.Combine(ingest.SourceConnection?.GetConfigurationValue("path") ?? "", ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{GetDateTimeForTimeZone(ingest):yyyy/MM/dd/}");
+        return (ingest.SourceConnection?.GetConfigurationValue("path") ?? "").CombineWith(ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{GetDateTimeForTimeZone(ingest):yyyy/MM/dd}/");
     }
 
     /// <summary>
@@ -244,10 +262,10 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                 if (sendMessage && reference != null)
                 {
                     // Send item to Kafka.
-                    var result = await _kafka.SendMessageAsync(manager.Ingest.Topic, item);
+                    var result = await this.Api.SendMessageAsync(manager.Ingest.Topic, item);
 
                     // Update content reference with Kafka response.
-                    await UpdateContentReferenceAsync(reference, result);
+                    await UpdateContentReferenceAsync(reference, item);
                 }
             }
             catch (Exception ex)
@@ -256,7 +274,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                 if (manager.Ingest.FailedAttempts + 1 >= manager.Ingest.RetryLimit)
                     throw;
 
-                _logger.LogError(ex, "Failed to ingest item for ingest '{name}'", manager.Ingest.Name);
+                this.Logger.LogError(ex, "Failed to ingest item for ingest '{name}'", manager.Ingest.Name);
                 await manager.RecordFailureAsync();
             }
         }
@@ -359,7 +377,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                 }
                 catch (Exception e)
                 {
-                    _logger.LogWarning(e, "Error extracting node '{key}' for ingest {name}.", key, ingest.Name);
+                    this.Logger.LogWarning(e, "Error extracting node '{key}' for ingest {name}.", key, ingest.Name);
                 }
             }
         }
@@ -428,13 +446,14 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                 // Iterate over the list of stories and add a new item to the articles list for each story.
                 foreach (XmlElement story in elementList)
                 {
-                    var papername = GetXmlData(story, Fields.PaperName, ingest);
-                    var code = GetItemSourceCode(ingest, papername, sources);
+                    var paperName = GetXmlData(story, Fields.PaperName, ingest);
+                    var code = GetItemSourceCode(ingest, paperName, sources);
 
                     if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
                     {
                         var item = new SourceContent(
-                            GetItemSourceCode(ingest, papername, sources),
+                            this.Options.DataLocation,
+                            GetItemSourceCode(ingest, paperName, sources),
                             ContentType.PrintContent,
                             ingest.ProductId,
                             GetXmlData(story, Fields.Id, ingest),
@@ -504,6 +523,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                     if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
                     {
                         var item = new SourceContent(
+                            this.Options.DataLocation,
                             code,
                             ContentType.PrintContent,
                             ingest.ProductId,
@@ -559,8 +579,12 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
             }
             else
             {
-                _logger.LogWarning("Paper '{paperName}' not in configuration string for ingest '{ingest.Name}'.", paperName, ingest.Name);
-                return "";
+                var defaultSource = ingest.GetConfigurationValue("defaultSource");
+                if (string.IsNullOrEmpty(defaultSource))
+                {
+                    this.Logger.LogWarning("Paper '{paperName}' not in configuration string for ingest, and there is no default source for '{ingest.Name}'.", paperName, ingest.Name);
+                }
+                return defaultSource;
             }
         }
     }
@@ -668,7 +692,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
         }
         catch (System.Xml.XmlException e)
         {
-            _logger.LogError(e, "Failed to ingest item from file '{path}'", filePath);
+            this.Logger.LogError(e, "Failed to ingest item from file '{path}'", filePath);
             throw e;
         }
 
@@ -683,7 +707,7 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <returns></returns>
     private string ReadFileContents(string filePath, IngestModel ingest)
     {
-        _logger.LogDebug("Reading file '{file}' for ingest '{name}'", filePath, ingest.Name);
+        this.Logger.LogDebug("Reading file '{file}' for ingest '{name}'", filePath, ingest.Name);
         var sr = new System.IO.StreamReader(filePath);
         var contents = sr.ReadToEnd();
         sr.Close();
@@ -739,9 +763,9 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     private static List<Author> GetAuthorList(string author)
     {
         var authors = new List<Author>
-        {
-            new Author(author.Trim(), "", "")
-        };
+            {
+                new Author(author.Trim(), "", "")
+            };
         return authors;
     }
 

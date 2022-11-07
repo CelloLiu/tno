@@ -122,7 +122,7 @@ export const ContentListView: React.FC = () => {
   };
 
   return (
-    <styled.ContentListView>
+    <styled.ContentListView maxWidth={combined ? 'fit-content' : ''}>
       <Row wrap="nowrap">
         <Col className="left-pane">
           <ContentFilter search={fetch} />
@@ -153,6 +153,13 @@ export const ContentListView: React.FC = () => {
               variant={ButtonVariant.secondary}
             >
               Create Print Content
+            </Button>
+            <Button
+              name="create"
+              onClick={() => navigate('/images/0')}
+              variant={ButtonVariant.secondary}
+            >
+              Create Image
             </Button>
           </Row>
         </Col>

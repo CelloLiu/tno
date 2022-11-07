@@ -1,5 +1,4 @@
 using System.Net;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.Content;
@@ -7,13 +6,14 @@ using TNO.API.Models;
 using TNO.DAL.Models;
 using TNO.DAL.Services;
 using TNO.Entities;
+using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// ContentController class, provides Content endpoints for the api.
 /// </summary>
-[Authorize]
+[ClientRoleAuthorize(ClientRole.Administrator)]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -127,8 +127,8 @@ public class ContentController : ControllerBase
 
         // If the content has a file reference, then update it.  Otherwise, add one.
         content.Version = version; // TODO: Handle concurrency before uploading the file as it will result in an orphaned file.
-        var reference = content.FileReferences.Any() ? new ContentFileReference(content.FileReferences.First(), files.First()) : new ContentFileReference(content, files.First());
-        await _fileReferenceService.Upload(reference);
+        if (content.FileReferences.Any()) await _fileReferenceService.UploadAsync(content, files.First());
+        else await _fileReferenceService.UploadAsync(new ContentFileReference(content, files.First()));
 
         return new JsonResult(new ContentModel(content));
     }

@@ -2,6 +2,7 @@ import styled from 'styled-components';
 
 export const ContentForm = styled.div`
   height: 100%;
+  z-index: 1;
 
   .minimize-details {
     margin: 1em 0 0 0;
@@ -53,5 +54,15 @@ export const ContentForm = styled.div`
     .tab-container {
       height: 100%;
     }
+  }
+
+  .tabs.expand {
+    .tab-container {
+      margin-bottom: 3em;
+    }
+  }
+
+  .tab .spinner {
+    margin-left: 0.5em;
   }
 `;

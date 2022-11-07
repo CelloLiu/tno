@@ -16,14 +16,14 @@ using TNO.Core.Extensions;
 using TNO.Kafka;
 using TNO.API.Config;
 using TNO.Kafka.Models;
-using TNO.Core.Exceptions;
+using TNO.Keycloak;
 
 namespace TNO.API.Areas.Editor.Controllers;
 
 /// <summary>
 /// ContentController class, provides Content endpoints for the api.
 /// </summary>
-[Authorize]
+[ClientRoleAuthorize(ClientRole.Editor)]
 [ApiController]
 [Area("editor")]
 [ApiVersion("1.0")]
@@ -38,9 +38,12 @@ public class ContentController : ControllerBase
     #region Variables
     private readonly IContentService _contentService;
     private readonly IFileReferenceService _fileReferenceService;
+    private readonly IWorkOrderService _workOrderService;
+    private readonly IUserService _userService;
     private readonly StorageOptions _storageOptions;
     private readonly IKafkaMessenger _kafkaMessenger;
     private readonly KafkaOptions _kafkaOptions;
+    private readonly ILogger _logger;
     #endregion
 
     #region Constructors
@@ -49,16 +52,30 @@ public class ContentController : ControllerBase
     /// </summary>
     /// <param name="contentService"></param>
     /// <param name="fileReferenceService"></param>
+    /// <param name="workOrderService"></param>
+    /// <param name="userService"></param>
     /// <param name="storageOptions"></param>
     /// <param name="kafkaMessenger"></param>
     /// <param name="kafkaOptions"></param>
-    public ContentController(IContentService contentService, IFileReferenceService fileReferenceService, IOptions<StorageOptions> storageOptions, IKafkaMessenger kafkaMessenger, IOptions<KafkaOptions> kafkaOptions)
+    /// <param name="logger"></param>
+    public ContentController(
+        IContentService contentService,
+        IFileReferenceService fileReferenceService,
+        IWorkOrderService workOrderService,
+        IUserService userService,
+        IOptions<StorageOptions> storageOptions,
+        IKafkaMessenger kafkaMessenger,
+        IOptions<KafkaOptions> kafkaOptions,
+        ILogger<ContentController> logger)
     {
         _contentService = contentService;
         _fileReferenceService = fileReferenceService;
+        _workOrderService = workOrderService;
+        _userService = userService;
         _storageOptions = storageOptions.Value;
         _kafkaMessenger = kafkaMessenger;
         _kafkaOptions = kafkaOptions.Value;
+        _logger = logger;
     }
     #endregion
 
@@ -111,10 +128,18 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> AddAsync(ContentModel model)
     {
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic)) throw new ConfigurationException("Kafka indexing topic not configured.");
-
         var content = _contentService.Add((Content)model);
-        await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Index));
+
+        if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
+        {
+            if (content.Status == ContentStatus.Publish || content.Status == ContentStatus.Published)
+                await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Publish));
+
+            // Always index the content.
+            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Index));
+        }
+        else
+            _logger.LogWarning("Kafka indexing topic not configured.");
 
         return CreatedAtAction(nameof(FindById), new { id = content.Id }, new ContentModel(content));
     }
@@ -132,17 +157,25 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> UpdateAsync(ContentModel model)
     {
-        var original = _contentService.FindById(model.Id) ?? throw new InvalidOperationException("Content does not exist");
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic)) throw new ConfigurationException("Kafka indexing topic not configured.");
+        var content = _contentService.Update((Content)model);
 
-        var result = _contentService.Update((Content)model);
+        if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
+        {
+            // If a request is submitted to unpublish we do it regardless of the current state of the content.
+            if (content.Status == ContentStatus.Unpublish)
+                await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Unpublish));
 
-        if (original.Status == ContentStatus.Published && result.Status != ContentStatus.Published)
-            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(result.Id, IndexAction.Unpublish));
+            // Any request to publish, or if content is already published, we will republish.
+            if (content.Status == ContentStatus.Publish || content.Status == ContentStatus.Published)
+                await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Publish));
 
-        await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(result.Id, IndexAction.Index));
+            // Always index the content.
+            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Index));
+        }
+        else
+            _logger.LogWarning("Kafka indexing topic not configured.");
 
-        return new JsonResult(new ContentModel(result));
+        return new JsonResult(new ContentModel(content));
     }
 
     /// <summary>
@@ -160,8 +193,12 @@ public class ContentController : ControllerBase
     {
         _contentService.Delete((Content)model);
 
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic)) throw new ConfigurationException("Kafka indexing topic not configured.");
-        await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(model.Id, IndexAction.Delete));
+        if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
+        {
+            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(model.Id, IndexAction.Delete));
+        }
+        else
+            _logger.LogWarning("Kafka indexing topic not configured.");
 
         return new JsonResult(model);
     }
@@ -180,13 +217,16 @@ public class ContentController : ControllerBase
     public async Task<IActionResult> PublishAsync(ContentModel model)
     {
         if (model.Status != ContentStatus.Published) model.Status = ContentStatus.Publish;
-        var result = _contentService.Update((Content)model);
-        if (result == null) throw new InvalidOperationException("Content does not exist");
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic)) throw new ConfigurationException("Kafka indexing topic not configured.");
+        var content = _contentService.Update((Content)model);
 
-        await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(result.Id, IndexAction.Publish));
+        if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
+        {
+            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Publish));
+        }
+        else
+            _logger.LogWarning("Kafka indexing topic not configured.");
 
-        return new JsonResult(new ContentModel(result));
+        return new JsonResult(new ContentModel(content));
     }
 
     /// <summary>
@@ -202,55 +242,16 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> UnpublishAsync(ContentModel model)
     {
-        var result = _contentService.Update((Content)model);
-        if (result == null) throw new InvalidOperationException("Content does not exist");
-        if (!new[] { ContentStatus.Published }.Contains(result.Status)) throw new InvalidOperationException("Content is an invalid status, and cannot be unpublished.");
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic)) throw new ConfigurationException("Kafka indexing topic not configured.");
+        var content = _contentService.Update((Content)model);
+        if (!new[] { ContentStatus.Published }.Contains(content.Status)) throw new InvalidOperationException("Content is an invalid status, and cannot be unpublished.");
 
-        await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(result.Id, IndexAction.Unpublish));
+        if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
+        {
+            await _kafkaMessenger.SendMessageAsync(_kafkaOptions.IndexingTopic, new IndexRequest(content.Id, IndexAction.Unpublish));
+        }
+        else
+            _logger.LogWarning("Kafka indexing topic not configured.");
 
-        return new JsonResult(new ContentModel(result));
-    }
-
-    /// <summary>
-    /// Request a transcript for the content for the specified 'id'.
-    /// Publish message to kafka to request a transcription.
-    /// </summary>
-    /// <param name="id"></param>
-    /// <returns></returns>
-    [HttpPut("{id}/transcribe")]
-    [Produces("application/json")]
-    [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
-    [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
-    [SwaggerOperation(Tags = new[] { "Content" })]
-    public async Task<IActionResult> RequestTranscriptionAsync(long id)
-    {
-        var content = _contentService.FindById(id) ?? throw new InvalidOperationException("Content does not exist");
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.TranscriptionTopic)) throw new ConfigurationException("Kafka transcription topic not configured.");
-
-        var result = await _kafkaMessenger.SendMessageAsync(_kafkaOptions.TranscriptionTopic, new TranscriptRequest(content.Id, this.User.GetUsername() ?? "API"));
-        if (result == null) throw new BadRequestException("Transcription request failed");
-        return new JsonResult(new ContentModel(content));
-    }
-
-    /// <summary>
-    /// Request a Natural Language Processing for the content for the specified 'id'.
-    /// Publish message to kafka to request a NLP.
-    /// </summary>
-    /// <param name="id"></param>
-    /// <returns></returns>
-    [HttpPut("{id}/nlp")]
-    [Produces("application/json")]
-    [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
-    [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
-    [SwaggerOperation(Tags = new[] { "Content" })]
-    public async Task<IActionResult> RequestNLPAsync(long id)
-    {
-        var content = _contentService.FindById(id) ?? throw new InvalidOperationException("Content does not exist");
-        if (String.IsNullOrWhiteSpace(_kafkaOptions.NLPTopic)) throw new ConfigurationException("Kafka NLP topic not configured.");
-
-        var result = await _kafkaMessenger.SendMessageAsync(_kafkaOptions.NLPTopic, new NLPRequest(content.Id));
-        if (result == null) throw new BadRequestException("Natural Language Processing request failed");
         return new JsonResult(new ContentModel(content));
     }
 
@@ -269,21 +270,14 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> UploadFile([FromRoute] long id, [FromQuery] long version, [FromForm] List<IFormFile> files)
     {
-        var content = _contentService.FindById(id);
-        if (content == null) return new JsonResult(new { Error = "Content does not exist" })
-        {
-            StatusCode = StatusCodes.Status400BadRequest
-        };
+        var content = _contentService.FindById(id) ?? throw new InvalidOperationException("Entity does not exist");
 
-        if (!files.Any()) return new JsonResult(new { Error = "No file uploaded." })
-        {
-            StatusCode = StatusCodes.Status400BadRequest
-        };
+        if (!files.Any()) throw new InvalidOperationException("No file uploaded");
 
         // If the content has a file reference, then update it.  Otherwise, add one.
         content.Version = version; // TODO: Handle concurrency before uploading the file as it will result in an orphaned file.
-        var reference = content.FileReferences.Any() ? new ContentFileReference(content.FileReferences.First(), files.First()) : new ContentFileReference(content, files.First());
-        await _fileReferenceService.Upload(reference);
+        if (content.FileReferences.Any()) await _fileReferenceService.UploadAsync(content, files.First());
+        else await _fileReferenceService.UploadAsync(new ContentFileReference(content, files.First()));
 
         return new JsonResult(new ContentModel(content));
     }
@@ -303,11 +297,7 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public IActionResult AttachFile([FromRoute] long id, [FromQuery] long version, [FromQuery] string path)
     {
-        var content = _contentService.FindById(id);
-        if (content == null) return new JsonResult(new { Error = "Content does not exist" })
-        {
-            StatusCode = StatusCodes.Status400BadRequest
-        };
+        var content = _contentService.FindById(id) ?? throw new InvalidOperationException("Entity does not exist");
 
         // If the content has a file reference, then update it.  Otherwise, add one.
         content.Version = version;
@@ -315,8 +305,8 @@ public class ContentController : ControllerBase
         if (!safePath.FileExists()) throw new InvalidOperationException("File does not exist");
 
         var file = new FileInfo(safePath);
-        var reference = content.FileReferences.Any() ? new ContentFileReference(content.FileReferences.First(), file) : new ContentFileReference(content, file);
-        _fileReferenceService.Attach(reference);
+        if (content.FileReferences.Any()) _fileReferenceService.Attach(content, file);
+        else _fileReferenceService.Attach(new ContentFileReference(content, file));
 
         return new JsonResult(new ContentModel(content));
     }
@@ -333,13 +323,7 @@ public class ContentController : ControllerBase
     [SwaggerOperation(Tags = new[] { "Content" })]
     public IActionResult DownloadFile(long id)
     {
-        var fileReference = _fileReferenceService.FindByContentId(id).FirstOrDefault();
-
-        if (fileReference == null) return new JsonResult(new { Error = "File does not exist" })
-        {
-            StatusCode = StatusCodes.Status400BadRequest
-        };
-
+        var fileReference = _fileReferenceService.FindByContentId(id).FirstOrDefault() ?? throw new InvalidOperationException("File does not exist");
         var stream = _fileReferenceService.Download(fileReference);
         return File(stream, fileReference.ContentType);
     }

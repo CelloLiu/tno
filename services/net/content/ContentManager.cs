@@ -10,11 +10,13 @@ using TNO.Services.Content.Config;
 using TNO.Core.Exceptions;
 using TNO.Core.Extensions;
 using TNO.Entities;
+using TNO.API.Areas.Services.Models.DataLocation;
+using Renci.SshNet;
 
 namespace TNO.Services.Content;
 
 /// <summary>
-/// ContentManager class, provides a Kafka Consumer service which imports content from all active topics.
+/// ContentManager class, provides a Kafka Listener service which imports content from all active topics.
 /// </summary>
 public class ContentManager : ServiceManager<ContentOptions>
 {
@@ -34,7 +36,7 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// <summary>
     /// get - Kafka message consumer.
     /// </summary>
-    protected IKafkaListener<string, SourceContent> Consumer { get; private set; }
+    protected IKafkaListener<string, SourceContent> Listener { get; private set; }
 
     /// <summary>
     /// get - Kafka message producer.
@@ -63,9 +65,9 @@ public class ContentManager : ServiceManager<ContentOptions>
     {
         this.KafkaAdmin = kafkaAdmin;
         this.Producer = kafkaMessenger;
-        this.Consumer = kafkaListener;
-        this.Consumer.OnError += ConsumerErrorHandler;
-        this.Consumer.OnStop += ConsumerStopHandler;
+        this.Listener = kafkaListener;
+        this.Listener.OnError += ListenerErrorHandler;
+        this.Listener.OnStop += ListenerStopHandler;
     }
     #endregion
 
@@ -78,7 +80,7 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// <returns></returns>
     public override async Task RunAsync()
     {
-        var delay = _options.DefaultDelayMS;
+        var delay = this.Options.DefaultDelayMS;
 
         // Always keep looping until an unexpected failure occurs.
         while (true)
@@ -90,7 +92,7 @@ public class ContentManager : ServiceManager<ContentOptions>
                 this.State.Stop();
 
                 // The service is stopping or has stopped, consume should stop too.
-                this.Consumer.Stop();
+                this.Listener.Stop();
             }
             else if (this.State.Status != ServiceStatus.Running)
             {
@@ -101,10 +103,10 @@ public class ContentManager : ServiceManager<ContentOptions>
                 try
                 {
                     // TODO: Handle e-tag.
-                    var ingest = (await _api.GetIngestsAsync()).ToArray();
+                    var ingest = (await this.Api.GetIngestsAsync()).ToArray();
 
                     // Listen to every enabled data source with a topic that is configured to produce content.
-                    var topics = _options.GetContentTopics(ingest
+                    var topics = this.Options.GetContentTopics(ingest
                         .Where(i => i.IsEnabled &&
                             !String.IsNullOrWhiteSpace(i.Topic) &&
                             i.ImportContent())
@@ -116,12 +118,12 @@ public class ContentManager : ServiceManager<ContentOptions>
 
                     if (topics.Length > 0)
                     {
-                        this.Consumer.Subscribe(topics);
+                        this.Listener.Subscribe(topics);
                         ConsumeMessages();
                     }
                     else if (topics.Length == 0)
                     {
-                        this.Consumer.Stop();
+                        this.Listener.Stop();
                     }
                 }
                 catch (Exception ex)
@@ -152,7 +154,7 @@ public class ContentManager : ServiceManager<ContentOptions>
             if (_cancelToken?.IsCancellationRequested == false)
                 _cancelToken?.Cancel();
             _cancelToken = new CancellationTokenSource();
-            _consumer = Task.Run(ConsumerHandlerAsync, _cancelToken.Token);
+            _consumer = Task.Run(ListenerHandlerAsync, _cancelToken.Token);
         }
     }
 
@@ -160,16 +162,16 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// Keep consuming messages from Kafka until the service stops running.
     /// </summary>
     /// <returns></returns>
-    private async Task ConsumerHandlerAsync()
+    private async Task ListenerHandlerAsync()
     {
         while (this.State.Status == ServiceStatus.Running &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            await this.Consumer.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
+            await this.Listener.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
         }
 
         // The service is stopping or has stopped, consume should stop too.
-        this.Consumer.Stop();
+        this.Listener.Stop();
     }
 
     /// <summary>
@@ -179,7 +181,7 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// <param name="sender"></param>
     /// <param name="e"></param>
     /// <returns>True if the consumer should retry the message.</returns>
-    private ConsumerAction ConsumerErrorHandler(object sender, ErrorEventArgs e)
+    private void ListenerErrorHandler(object sender, ErrorEventArgs e)
     {
         // Only the first retry will count as a failure.
         if (_retries == 0)
@@ -187,10 +189,9 @@ public class ContentManager : ServiceManager<ContentOptions>
 
         if (e.GetException() is ConsumeException consume)
         {
-            return consume.Error.IsFatal ? ConsumerAction.Stop : ConsumerAction.Retry;
+            if (consume.Error.IsFatal)
+                this.Listener.Stop();
         }
-
-        return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
     }
 
     /// <summary>
@@ -198,13 +199,13 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void ConsumerStopHandler(object sender, EventArgs e)
+    private void ListenerStopHandler(object sender, EventArgs e)
     {
         if (_consumer != null &&
             !_notRunning.Contains(_consumer.Status) &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            this.Logger.LogDebug("Consumer thread is being cancelled");
+            this.Logger.LogDebug("Listener thread is being cancelled");
             _cancelToken.Cancel();
         }
     }
@@ -215,8 +216,9 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// </summary>
     /// <param name="result"></param>
     /// <returns>Whether to continue with the next message.</returns>
+    /// <exception cref="ConfigurationException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
-    private async Task<ConsumerAction> HandleMessageAsync(ConsumeResult<string, SourceContent> result)
+    private async Task HandleMessageAsync(ConsumeResult<string, SourceContent> result)
     {
         try
         {
@@ -224,16 +226,16 @@ public class ContentManager : ServiceManager<ContentOptions>
             var model = result.Message.Value;
 
             // Only add if doesn't already exist.
-            var exists = await _api.FindContentByUidAsync(model.Uid, model.Source);
+            var exists = await this.Api.FindContentByUidAsync(model.Uid, model.Source);
             if (exists == null)
             {
                 // TODO: Failures after receiving the message from Kafka will result in missing content.  Need to handle this scenario.
                 // TODO: Handle e-tag.
-                var source = await _api.GetSourceForCodeAsync(model.Source);
+                var source = await this.Api.GetSourceForCodeAsync(model.Source);
                 if (model.ProductId == 0)
                 {
                     // Messages in Kafka are missing information, replace with best guess.
-                    var ingests = await _api.GetIngestsForTopicAsync(result.Topic);
+                    var ingests = await this.Api.GetIngestsForTopicAsync(result.Topic);
                     model.ProductId = ingests.FirstOrDefault()?.ProductId ?? throw new InvalidOperationException($"Unable to find an ingest for the topic '{result.Topic}'");
                 }
 
@@ -251,47 +253,52 @@ public class ContentManager : ServiceManager<ContentOptions>
                     Headline = String.IsNullOrWhiteSpace(model.Title) ? "[TBD]" : model.Title,
                     Uid = model.Uid,
                     Page = "", // TODO: Provide default page from Data Source config settings.
-                    Summary = String.IsNullOrWhiteSpace(model.Summary) ? "[TBD]" : model.Summary,
-                    Body = !String.IsNullOrWhiteSpace(model.Body) ? model.Body : model.ContentType == ContentType.Snippet ? "" : model.Summary,
+                    Summary = String.IsNullOrWhiteSpace(model.Summary) ? "[TBD]" : StringExtensions.SanitizeContent(model.Summary, "<p(?:\\s[^>]*)?>|</p>", Environment.NewLine),
+                    Body = !String.IsNullOrWhiteSpace(model.Body) ? StringExtensions.SanitizeContent(model.Body, "<p(?:\\s[^>]*)?>|</p>", Environment.NewLine) : model.ContentType == ContentType.Snippet ? "" : StringExtensions.SanitizeContent(model.Summary, "<p(?:\\s[^>]*)?>|</p>", Environment.NewLine),
                     SourceUrl = model.Link,
                     PublishedOn = model.PublishedOn,
                 };
-                content = await _api.AddContentAsync(content);
+                content = await this.Api.AddContentAsync(content);
                 this.Logger.LogInformation("Content Imported.  Content ID: {id}, Pub: {published}", content?.Id, content?.PublishedOn);
 
                 // Upload the file to the API.
                 if (content != null && !String.IsNullOrWhiteSpace(model.FilePath))
                 {
-                    // TODO: Handle different storage locations.
-                    // If the source content references a connection then fetch it to get the storage location of the file.
-                    var fullPath = Path.Combine(_options.VolumePath, model.FilePath.MakeRelativePath());
-                    if (File.Exists(fullPath))
-                    {
-                        var file = File.OpenRead(fullPath);
-                        var fileName = Path.GetFileName(fullPath);
-                        content = await _api.UploadFileAsync(content.Id, content.Version ?? 0, file, fileName);
+                    // A service needs to know it's context so that it can import files.
+                    // Default to the service data location if the source model does not specify.
+                    var dataLocation = await this.Api.GetDataLocationAsync(!String.IsNullOrWhiteSpace(model.DataLocation) ? model.DataLocation : this.Options.DataLocation)
+                        ?? throw new ConfigurationException("Service data location is not configured correctly");
 
-                        // Send a Kafka message to the transcription topic
-                        if (!String.IsNullOrWhiteSpace(_options.TranscriptionTopic))
-                        {
-                            await SendMessageAsync(content!);
-                        }
-                    }
-                    else
+                    // TODO: It isn't ideal to copy files via the API as large files will block this service.  Need to figure out a more performant process at some point.
+                    content = (dataLocation.Connection?.ConnectionType) switch
                     {
-                        // TODO: Not sure if this should be considered a failure or not.
-                        this.Logger.LogWarning("File not found.  Content ID: {id}, File: {path}", content.Id, fullPath);
-                    }
+                        ConnectionType.NAS => throw new NotImplementedException(),
+                        ConnectionType.HTTP => throw new NotImplementedException(),
+                        ConnectionType.FTP => throw new NotImplementedException(),
+                        ConnectionType.SFTP => throw new NotImplementedException(),
+                        ConnectionType.Azure => throw new NotImplementedException(),
+                        ConnectionType.AWS => throw new NotImplementedException(),
+                        ConnectionType.SSH => await CopyFileWithSSHAsync(dataLocation, model, content),
+                        ConnectionType.LocalVolume => await CopyFileFromLocalVolumeAsync(model, content),
+                        _ => await CopyFileFromLocalVolumeAsync(model, content),
+                    };
+
+                    // Send a Kafka message to the transcription topic
+                    // TODO: Automate transcripts when configured by rules (ingest, source, type).
+                    // if (!String.IsNullOrWhiteSpace(this.Options.TranscriptionTopic))
+                    // {
+                    //     await SendMessageAsync(content!);
+                    // }
                 }
 
                 if (content != null)
                 {
                     // Update the status of the content reference.
-                    var reference = await _api.FindContentReferenceAsync(content.OtherSource, content.Uid);
+                    var reference = await this.Api.FindContentReferenceAsync(content.OtherSource, content.Uid);
                     if (reference != null)
                     {
                         reference.Status = (int)WorkflowStatus.Imported;
-                        await _api.UpdateContentReferenceAsync(reference);
+                        await this.Api.UpdateContentReferenceAsync(reference);
                     }
                 }
             }
@@ -305,14 +312,103 @@ public class ContentManager : ServiceManager<ContentOptions>
             // Successful run clears any errors.
             this.State.ResetFailures();
             _retries = 0;
-            return ConsumerAction.Proceed;
         }
         catch (HttpClientRequestException ex)
         {
             this.Logger.LogError(ex, "HTTP exception while consuming. {response}", ex.Data["body"] ?? "");
         }
+    }
 
-        return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
+    /// <summary>
+    /// Copy the files from the local volume storage to the API.
+    /// </summary>
+    /// <param name="model"></param>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    private async Task<ContentModel> CopyFileFromLocalVolumeAsync(SourceContent model, ContentModel content)
+    {
+        var fullPath = this.Options.VolumePath.CombineWith(model.FilePath.MakeRelativePath());
+        if (File.Exists(fullPath))
+        {
+            var file = File.OpenRead(fullPath);
+            var fileName = Path.GetFileName(fullPath);
+            return await this.Api.UploadFileAsync(content.Id, content.Version ?? 0, file, fileName) ?? content;
+        }
+        else
+        {
+            // TODO: Not sure if this should be considered a failure or not.
+            this.Logger.LogWarning("File not found.  Content ID: {id}, File: {path}", content.Id, fullPath);
+        }
+        return content;
+    }
+
+    /// <summary>
+    /// Connect to remote location via SSH and copy files to the API.
+    /// </summary>
+    /// <param name="dataLocation"></param>
+    /// <param name="model"></param>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    /// <exception cref="ConfigurationException"></exception>
+    private async Task<ContentModel> CopyFileWithSSHAsync(DataLocationModel dataLocation, SourceContent model, ContentModel content)
+    {
+        var connection = dataLocation.Connection ?? throw new ConfigurationException("The data location is missing connection information");
+        var hostname = connection.GetConfigurationValue("hostname");
+        var username = connection.GetConfigurationValue("username");
+        var password = connection.GetConfigurationValue("password");
+        var keyFileName = connection.GetConfigurationValue("keyFileName");
+        var path = connection.GetConfigurationValue("path");
+
+        AuthenticationMethod authMethod;
+        if (!String.IsNullOrWhiteSpace(password))
+        {
+            authMethod = new PasswordAuthenticationMethod(username, password);
+        }
+        else if (!String.IsNullOrWhiteSpace(keyFileName))
+        {
+            var sshKeyFile = this.Options.PrivateKeysPath.CombineWith(keyFileName);
+            if (File.Exists(sshKeyFile))
+            {
+                var keyFile = new PrivateKeyFile(sshKeyFile);
+                var keyFiles = new[] { keyFile };
+                authMethod = new PrivateKeyAuthenticationMethod(username, keyFiles);
+            }
+            else
+            {
+                throw new ConfigurationException($"SSH Private key file does not exist: {sshKeyFile}");
+            }
+        }
+        else throw new ConfigurationException("Data location connection settings are missing");
+
+        using var client = new SftpClient(new ConnectionInfo(hostname, username, authMethod));
+        client.Connect();
+        Stream? file = null;
+        try
+        {
+            var fullPath = path.CombineWith(model.FilePath.MakeRelativePath()).Replace("~/", $"{client.WorkingDirectory}/");
+            if (client.Exists(fullPath))
+            {
+                var fileName = Path.GetFileName(fullPath);
+                file = client.OpenRead(fullPath);
+                content = await this.Api.UploadFileAsync(content.Id, content.Version ?? 0, file, fileName) ?? content;
+            }
+            else
+            {
+                this.Logger.LogWarning("File does not exist in data location '{location}', '{path}'", dataLocation.Name, fullPath);
+            }
+            return content;
+        }
+        catch
+        {
+            this.Logger.LogError("Failed to copy file from remote data location");
+            throw;
+        }
+        finally
+        {
+            client.Disconnect();
+            if (file != null)
+                file.Close();
+        }
     }
 
     /// <summary>
@@ -323,7 +419,7 @@ public class ContentManager : ServiceManager<ContentOptions>
     /// <exception cref="InvalidOperationException"></exception>
     private async Task<DeliveryResult<string, TranscriptRequest>> SendMessageAsync(ContentModel content)
     {
-        var result = await this.Producer.SendMessageAsync(_options.TranscriptionTopic, new TranscriptRequest(content, "ContentService"));
+        var result = await this.Producer.SendMessageAsync(this.Options.TranscriptionTopic, new TranscriptRequest(content, "ContentService"));
         if (result == null) throw new InvalidOperationException($"Failed to receive result from Kafka for {content.OtherSource}:{content.Uid}");
         return result;
     }

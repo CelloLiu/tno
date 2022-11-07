@@ -7,17 +7,17 @@ import {
   FormikTextArea,
 } from 'components/formik';
 import { Modal } from 'components/modal';
-import { useModal } from 'hooks';
+import { useModal, useTooltips } from 'hooks';
 import { IUserModel, UserStatusName } from 'hooks/api-editor';
 import React from 'react';
 import { FaTrash } from 'react-icons/fa';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import ReactTooltip from 'react-tooltip';
 import { useLookup } from 'store/hooks';
 import { useUsers } from 'store/hooks/admin';
 import { Button, ButtonVariant, Show } from 'tno-core';
 import { Col, Row } from 'tno-core';
+import { getEnumStringOptions } from 'utils';
 
 import { defaultUser } from './constants';
 import * as styled from './styled';
@@ -33,18 +33,15 @@ export const UserForm: React.FC = () => {
   const userId = Number(id);
   const { toggle, isShowing } = useModal();
   const [lookups] = useLookup();
+  useTooltips();
 
   const [user, setUser] = React.useState<IUserModel>(defaultUser);
   const [roleOptions, setRoleOptions] = React.useState(
     lookups.roles.map((r) => new OptionItem(r.name, r.id)),
   );
 
-  const isLinkedToKeycloak = user.key !== '00000000-0000-0000-0000-000000000000';
-  const statusOptions = [
-    UserStatusName.Requested,
-    UserStatusName.Approved,
-    UserStatusName.Denied,
-  ].map((s) => new OptionItem(s, s));
+  // const isLinkedToKeycloak = user.key !== '00000000-0000-0000-0000-000000000000';
+  const statusOptions = getEnumStringOptions(UserStatusName);
 
   React.useEffect(() => {
     if (!!userId && user?.id !== userId) {
@@ -57,10 +54,6 @@ export const UserForm: React.FC = () => {
   React.useEffect(() => {
     setRoleOptions(lookups.roles.map((r) => new OptionItem(r.name, r.id)));
   }, [lookups.roles]);
-
-  React.useEffect(() => {
-    ReactTooltip.rebuild();
-  });
 
   const handleSubmit = async (values: IUserModel) => {
     try {
@@ -91,12 +84,7 @@ export const UserForm: React.FC = () => {
           <div className="form-container">
             <Row>
               <Col className="form-inputs">
-                <FormikText
-                  name="username"
-                  label="Username"
-                  disabled={isLinkedToKeycloak}
-                  required={!values.id}
-                />
+                <FormikText name="username" label="Username" required={!values.id} />
               </Col>
               <Col
                 className="form-inputs"
@@ -112,13 +100,7 @@ export const UserForm: React.FC = () => {
                 </Show>
               </Col>
             </Row>
-            <FormikText
-              name="email"
-              label="Email"
-              type="email"
-              disabled={isLinkedToKeycloak}
-              required={!values.id}
-            />
+            <FormikText name="email" label="Email" type="email" required={!values.id} />
             <Row>
               <Col className="form-inputs">
                 <FormikText
@@ -130,8 +112,8 @@ export const UserForm: React.FC = () => {
                 <FormikCheckbox label="Is Enabled" name="isEnabled" />
               </Col>
               <Col className="form-inputs">
-                <FormikText name="firstName" label="First Name" disabled={isLinkedToKeycloak} />
-                <FormikText name="lastName" label="Last Name" disabled={isLinkedToKeycloak} />
+                <FormikText name="firstName" label="First Name" />
+                <FormikText name="lastName" label="Last Name" />
               </Col>
             </Row>
             {!!user.id && (
@@ -154,8 +136,8 @@ export const UserForm: React.FC = () => {
                       onClick={(e) => {
                         const id = (values as any).role;
                         const role = lookups.roles.find((r) => r.id === id);
-                        if (role && !values.roles?.some((r) => r.id === id))
-                          setUser({ ...values, roles: [...(values.roles ?? []), role] });
+                        if (role && !values.roles?.some((r) => r === id))
+                          setUser({ ...values, roles: [...(values.roles ?? []), role.id] });
                       }}
                     >
                       Add
@@ -164,16 +146,16 @@ export const UserForm: React.FC = () => {
                 </Col>
               </Row>
               <hr />
-              {user.roles?.map((r) => (
-                <Row alignContent="stretch" key={r.id}>
-                  <Col flex="1 1 auto">{r.name}</Col>
+              {user.roles?.map((role) => (
+                <Row alignContent="stretch" key={role}>
+                  <Col flex="1 1 auto">{role}</Col>
                   <Col>
                     <Button
                       variant={ButtonVariant.danger}
                       onClick={(e) => {
                         setUser({
                           ...values,
-                          roles: values.roles?.filter((ur) => ur.id !== r.id) ?? [],
+                          roles: values.roles?.filter((ur) => ur !== role) ?? [],
                         });
                         setFieldValue('role', 0);
                       }}

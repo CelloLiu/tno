@@ -6,12 +6,12 @@ using TNO.API.Areas.Services.Models.Ingest;
 using TNO.Core.Exceptions;
 using TNO.Core.Extensions;
 using TNO.Entities;
-using TNO.Kafka;
 using TNO.Models.Extensions;
 using TNO.Kafka.Models;
 using TNO.Services.Clip.Config;
 using TNO.Services.Command;
 using System.Diagnostics;
+using TNO.API.Areas.Kafka.Models;
 
 namespace TNO.Services.Clip;
 
@@ -29,23 +29,17 @@ public class ClipAction : CommandAction<ClipOptions>
     #endregion
 
     #region Properties
-    /// <summary>
-    /// get - The kafka messenger service.
-    /// </summary>
-    protected IKafkaMessenger Producer { get; private set; }
     #endregion
 
     #region Constructors
     /// <summary>
     /// Creates a new instance of a ClipAction, initializes with specified parameters.
     /// </summary>
-    /// <param name="producer"></param>
     /// <param name="api"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
-    public ClipAction(IKafkaMessenger producer, IApiService api, IOptions<ClipOptions> options, ILogger<ClipAction> logger) : base(api, options, logger)
+    public ClipAction(IApiService api, IOptions<ClipOptions> options, ILogger<ClipAction> logger) : base(api, options, logger)
     {
-        this.Producer = producer;
     }
     #endregion
 
@@ -185,19 +179,28 @@ public class ClipAction : CommandAction<ClipOptions>
     /// <param name="reference"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private async Task<Confluent.Kafka.DeliveryResult<string, SourceContent>> SendMessageAsync(ICommandProcess process, IngestModel ingest, ScheduleModel schedule, ContentReferenceModel reference)
+    private async Task<DeliveryResultModel<SourceContent>> SendMessageAsync(ICommandProcess process, IngestModel ingest, ScheduleModel schedule, ContentReferenceModel reference)
     {
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
         var file = (string)process.Data["filename"];
         var path = file.Replace(this.Options.VolumePath, "");
         var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
-        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, reference.Uid, $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}", "", "", publishedOn.ToUniversalTime())
+        var content = new SourceContent(
+            this.Options.DataLocation,
+            reference.Source,
+            contentType,
+            ingest.ProductId,
+            reference.Uid,
+            $"{schedule.Name} {schedule.StartAt:c}-{schedule.StopAt:c}",
+            "",
+            "",
+            publishedOn.ToUniversalTime())
         {
             StreamUrl = ingest.GetConfigurationValue("url") ?? "",
             FilePath = path?.MakeRelativePath() ?? "",
             Language = ingest.GetConfigurationValue("language") ?? ""
         };
-        var result = await this.Producer.SendMessageAsync(reference.Topic, content);
+        var result = await this.Api.SendMessageAsync(reference.Topic, content);
         if (result == null) throw new InvalidOperationException($"Failed to receive result from Kafka for {reference.Source}:{reference.Uid}");
         return result;
     }
@@ -263,6 +266,7 @@ public class ClipAction : CommandAction<ClipOptions>
     {
         if (schedule == null) throw new InvalidOperationException($"Ingest schedule '{manager.Ingest.Name}' is required");
 
+        var logLevel = manager.Ingest.GetConfigurationValue<string>("logLevel", "warning");
         var input = await GetInputFileAsync(manager.Ingest, schedule);
         var start = GetStart(manager.Ingest, schedule, input);
         var duration = GetDuration(schedule);
@@ -274,7 +278,7 @@ public class ClipAction : CommandAction<ClipOptions>
         var output = GetOutput(manager.Ingest, schedule);
         process.Data.Add("filename", output);
 
-        return $"-i \"{input}\"{start}{duration}{volume}{format}{otherArgs}{copy} -y \"{output}\"";
+        return $"-loglevel {logLevel} -i \"{input}\"{start}{duration}{volume}{format}{otherArgs}{copy} -y \"{output}\"";
     }
 
     /// <summary>
@@ -305,7 +309,7 @@ public class ClipAction : CommandAction<ClipOptions>
     private async Task<string> GetInputFileAsync(IngestModel ingest, ScheduleModel schedule)
     {
         // TODO: Handle issue where capture failed and has multiple files.
-        var path = Path.Combine(this.Options.VolumePath, ingest.SourceConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
+        var path = this.Options.VolumePath.CombineWith(ingest.SourceConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
         var clipStart = schedule.StartAt;
 
         // Review each file that was captured to determine which one is valid for this clip schedule.
@@ -371,20 +375,37 @@ public class ClipAction : CommandAction<ClipOptions>
 
     /// <summary>
     /// Get the duration of the file in seconds.
+    /// Handles different types of A/V files (i.e. mkv, mp4, mp3).
     /// </summary>
     /// <param name="inputFile"></param>
     /// <returns></returns>
-    private async Task<long> GetDurationAsync(string inputFile)
+    private static async Task<long> GetDurationAsync(string inputFile)
+    {
+        var ext = Path.GetExtension(inputFile);
+
+        switch (ext)
+        {
+            case ".mkv":
+                var tempFile = await RepackageFileAsync(inputFile);
+                var duration = await ParseDurationAsync(tempFile);
+                File.Delete(tempFile);
+                return duration;
+            default:
+                return await ParseDurationAsync(inputFile);
+        }
+    }
+
+    /// <summary>
+    /// Parse the duration of the A/V file from its meta-data.
+    /// </summary>
+    /// <param name="inputFile"></param>
+    /// <returns></returns>
+    private static async Task<long> ParseDurationAsync(string inputFile)
     {
         var process = new System.Diagnostics.Process();
         process.StartInfo.Verb = $"Duration";
         process.StartInfo.FileName = "/bin/sh";
-        // Initial
         process.StartInfo.Arguments = $"-c \"ffprobe -i '{inputFile}' -show_format -v quiet | sed -n 's/duration=//p'\"";
-        // Format (container) duration
-        // process.StartInfo.Arguments = $"-c \"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{inputFile}\"";
-        // Video stream duration
-        // process.StartInfo.Arguments = $"-c \"ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 \"{inputFile}\"";
         process.StartInfo.UseShellExecute = false;
         process.StartInfo.CreateNoWindow = true;
         process.StartInfo.RedirectStandardOutput = true;
@@ -394,9 +415,34 @@ public class ClipAction : CommandAction<ClipOptions>
         var output = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
 
-        var value = String.IsNullOrWhiteSpace(output) ? 0 : float.Parse(output);
+        if (String.IsNullOrWhiteSpace(output)) return 0;
+        return float.TryParse(output, out float value) ? (long)Math.Floor(value) : 0;
+    }
 
-        return (long)Math.Floor(value);
+    /// <summary>
+    /// Repackage the file into a different type.
+    /// </summary>
+    /// <param name="inputFile"></param>
+    /// <param name="format"></param>
+    /// <returns></returns>
+    private static async Task<string> RepackageFileAsync(string inputFile, string format = "mp4")
+    {
+        var ext = Path.GetExtension(inputFile);
+        var outputFile = inputFile.Replace(ext, $".{format}");
+        var process = new System.Diagnostics.Process();
+        process.StartInfo.Verb = $"Repackage";
+        process.StartInfo.FileName = "/bin/sh";
+        process.StartInfo.Arguments = $"-c \"ffmpeg -i '{inputFile}' -vcodec copy -acodec copy '{outputFile}'";
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.EnableRaisingEvents = true;
+        process.Start();
+
+        await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        return outputFile;
     }
 
     /// <summary>
@@ -418,7 +464,7 @@ public class ClipAction : CommandAction<ClipOptions>
     /// <returns></returns>
     protected string GetOutputPath(IngestModel ingest)
     {
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
+        return this.Options.VolumePath.CombineWith(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
     }
 
     /// <summary>
@@ -439,7 +485,7 @@ public class ClipAction : CommandAction<ClipOptions>
         var name = Path.GetFileNameWithoutExtension(filename);
         var ext = Path.GetExtension(filename);
 
-        return Path.Combine(path, $"{name}{ext}");
+        return path.CombineWith($"{name}{ext}");
     }
 
     /// <summary>

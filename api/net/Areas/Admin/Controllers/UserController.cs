@@ -1,5 +1,4 @@
 using System.Net;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -10,13 +9,14 @@ using TNO.DAL.Models;
 using TNO.DAL.Services;
 using TNO.Entities;
 using TNO.Entities.Models;
+using TNO.Keycloak;
 
 namespace TNO.API.Areas.Admin.Controllers;
 
 /// <summary>
 /// UserController class, provides User endpoints for the admin api.
 /// </summary>
-[Authorize]
+[ClientRoleAuthorize(ClientRole.Administrator)]
 [ApiController]
 [Area("admin")]
 [ApiVersion("1.0")]
@@ -60,8 +60,7 @@ public class UserController : ControllerBase
         var uri = new Uri(this.Request.GetDisplayUrl());
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         var result = _userService.Find(new UserFilter(query));
-        var items = result.Items.Where(u => !u.IsSystemAccount).Select(ds => new UserModel(ds));
-        var page = new Paged<UserModel>(items, result.Page, result.Quantity, items.Count());
+        var page = new Paged<UserModel>(result.Items.Select(ds => new UserModel(ds)), result.Page, result.Quantity, result.Total);
         return new JsonResult(page);
     }
 
@@ -114,9 +113,9 @@ public class UserController : ControllerBase
     [SwaggerOperation(Tags = new[] { "User" })]
     public async Task<IActionResult> UpdateAsync(UserModel model)
     {
-        var result = await _keycloakHelper.UpdateUserAsync((User)model);
+        var result = await _keycloakHelper.UpdateUserAsync(model);
         if (result == null) throw new InvalidOperationException("Keycloak user failed to update");
-        return new JsonResult(new UserModel(result));
+        return new JsonResult(result);
     }
 
     /// <summary>

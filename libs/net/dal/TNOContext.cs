@@ -45,6 +45,8 @@ public class TNOContext : DbContext
     public DbSet<IngestSchedule> IngestSchedules => Set<IngestSchedule>();
     public DbSet<Schedule> Schedules => Set<Schedule>();
     public DbSet<Connection> Connections => Set<Connection>();
+    public DbSet<DataLocation> DataLocations => Set<DataLocation>();
+    public DbSet<IngestDataLocation> IngestDataLocations => Set<IngestDataLocation>();
     public DbSet<Source> Sources => Set<Source>();
     public DbSet<SourceMetric> SourceMetrics => Set<SourceMetric>();
     public DbSet<Metric> Metrics => Set<Metric>();
@@ -52,10 +54,7 @@ public class TNOContext : DbContext
     public DbSet<SourceAction> SourceActions => Set<SourceAction>();
     public DbSet<Cache> Cache => Set<Cache>();
     public DbSet<User> Users => Set<User>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
-    public DbSet<Role> Roles => Set<Role>();
-    public DbSet<RoleClaim> RoleClaims => Set<RoleClaim>();
-    public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     #endregion
 
     #region Constructors
@@ -130,7 +129,7 @@ public class TNOContext : DbContext
                 }
                 else if (entry.State != EntityState.Deleted)
                 {
-                    this.OnUpdate(entity, user);
+                    this.OnUpdate(entry, user);
                 }
             }
         }

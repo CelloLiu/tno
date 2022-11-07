@@ -86,6 +86,11 @@ spec:
                 configMapKeyRef:
                   name: services
                   key: API_HOST_URL
+            - name: Service__DataLocation
+              valueFrom:
+                configMapKeyRef:
+                  name: services
+                  key: DATA_LOCATION
 
             - name: Auth__Keycloak__Authority
               valueFrom:
@@ -103,28 +108,17 @@ spec:
                   name: services
                   key: KEYCLOAK_CLIENT_SECRET
 
-            - name: Kafka__Producer__BootstrapServers
-              valueFrom:
-                configMapKeyRef:
-                  name: services
-                  key: KAFKA_BOOTSTRAP_SERVERS
-
             # Capture Service Configuration
-            - name: Kafka__Producer__ClientId
-              valueFrom:
-                configMapKeyRef:
-                  name: capture-service
-                  key: KAFKA_CLIENT_ID
             - name: Service__MaxFailLimit
               valueFrom:
                 configMapKeyRef:
                   name: capture-service
                   key: MAX_FAIL_LIMIT
-            - name: Service__OutputPath
+            - name: Service__VolumePath
               valueFrom:
                 configMapKeyRef:
                   name: capture-service
-                  key: OUTPUT_PATH
+                  key: VOLUME_PATH
           livenessProbe:
             httpGet:
               path: "/health"

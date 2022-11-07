@@ -38,6 +38,7 @@ public class ActionModel : BaseTypeWithAuditColumnsModel<int>
     {
         this.ValueLabel = entity.ValueLabel;
         this.ValueType = entity.ValueType;
+        this.IsEnabled = entity.IsEnabled;
         this.DefaultValue = entity.DefaultValue;
     }
     #endregion
@@ -63,6 +64,7 @@ public class ActionModel : BaseTypeWithAuditColumnsModel<int>
         {
             Id = model.Id,
             DefaultValue = model.DefaultValue,
+            IsEnabled = model.IsEnabled,
             Version = model.Version ?? 0
         };
 

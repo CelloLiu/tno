@@ -4,7 +4,6 @@ using TNO.API.Areas.Services.Models.ContentReference;
 using TNO.API.Areas.Services.Models.Ingest;
 using TNO.Core.Extensions;
 using TNO.Entities;
-using TNO.Kafka;
 using TNO.Models.Extensions;
 using TNO.Kafka.Models;
 using TNO.Services.Actions;
@@ -12,6 +11,8 @@ using TNO.Services.Image.Config;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
 using TNO.Core.Exceptions;
+using TNO.API.Areas.Kafka.Models;
+using System.Text.RegularExpressions;
 
 namespace TNO.Services.Image;
 
@@ -25,15 +26,7 @@ namespace TNO.Services.Image;
 /// </summary>
 public class ImageAction : IngestAction<ImageOptions>
 {
-    #region Variables
-    #endregion
-
     #region Properties
-    /// <summary>
-    /// get - The kafka messenger service.
-    /// </summary>
-    protected IKafkaMessenger Producer { get; private set; }
-
     /// <summary>
     /// get - The logger.
     /// </summary>
@@ -44,13 +37,11 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <summary>
     /// Creates a new instance of a ImageAction, initializes with specified parameters.
     /// </summary>
-    /// <param name="producer"></param>
     /// <param name="api"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
-    public ImageAction(IKafkaMessenger producer, IApiService api, IOptions<ImageOptions> options, ILogger<ImageAction> logger) : base(api, options)
+    public ImageAction(IApiService api, IOptions<ImageOptions> options, ILogger<ImageAction> logger) : base(api, options)
     {
-        this.Producer = producer;
         this.Logger = logger;
     }
     #endregion
@@ -88,18 +79,18 @@ public class ImageAction : IngestAction<ImageOptions>
         if (String.IsNullOrWhiteSpace(keyFileName)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'keyFileName'.");
         if (String.IsNullOrWhiteSpace(remotePath)) throw new ConfigurationException($"Ingest '{manager.Ingest.Name}' source connection is missing a 'path'.");
 
-        var sshKeyFile = Path.Combine(this.Options.PrivateKeysPath, keyFileName);
+        var sshKeyFile = this.Options.PrivateKeysPath.CombineWith(keyFileName);
 
         if (File.Exists(sshKeyFile))
         {
             var keyFile = new PrivateKeyFile(sshKeyFile);
-
             var keyFiles = new[] { keyFile };
             var connectionInfo = new ConnectionInfo(hostname,
                                                 username,
                                                 new PrivateKeyAuthenticationMethod(username, keyFiles));
             using var client = new SftpClient(connectionInfo);
             client.Connect();
+            remotePath = remotePath.Replace("~/", $"{client.WorkingDirectory}/");
             var files = await FetchImagesAsync(client, remotePath);
             files = files.Where(f => f.Name.Contains(inputFileName));
             this.Logger.LogDebug("{count} files were discovered that match the filter '{filter}'.", files.Count(), inputFileName);
@@ -124,7 +115,7 @@ public class ImageAction : IngestAction<ImageOptions>
 
                 if (reference != null)
                 {
-                    await CopyImageAsync(client, manager.Ingest, Path.Combine(remotePath, file.Name));
+                    await CopyImageAsync(client, manager.Ingest, remotePath.CombineWith(file.Name));
 
                     var messageResult = sendMessage ? await SendMessageAsync(manager.Ingest, reference) : null;
                     await UpdateContentReferenceAsync(reference, messageResult);
@@ -147,7 +138,7 @@ public class ImageAction : IngestAction<ImageOptions>
     protected string GetOutputPath(IngestModel ingest)
     {
         // TODO: Handle different destination connections.
-        return Path.Combine(this.Options.VolumePath, ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd/}");
+        return this.Options.VolumePath.CombineWith(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}/");
     }
 
     /// <summary>
@@ -158,7 +149,11 @@ public class ImageAction : IngestAction<ImageOptions>
     protected string GetInputPath(IngestModel ingest)
     {
         var currentDate = GetDateTimeForTimeZone(ingest);
-        return Path.Combine(ingest.SourceConnection?.GetConfigurationValue("path") ?? "", ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "", currentDate.Year.ToString(), currentDate.Month.ToString("00"), currentDate.Day.ToString("00"));
+        return (ingest.SourceConnection?.GetConfigurationValue("path") ?? "").CombineWith(
+                ingest.GetConfigurationValue("path")?.MakeRelativePath() ?? "",
+                currentDate.Year.ToString(),
+                currentDate.Month.ToString("00"),
+                currentDate.Day.ToString("00"));
     }
 
     /// <summary>
@@ -199,7 +194,7 @@ public class ImageAction : IngestAction<ImageOptions>
         // TODO: Eventually handle different destination data locations based on config.
         var outputPath = GetOutputPath(ingest);
         var fileName = Path.GetFileName(pathToFile);
-        var outputFile = Path.Combine(outputPath, fileName);
+        var outputFile = outputPath.CombineWith(fileName);
 
         if (!System.IO.File.Exists(outputFile))
         {
@@ -219,8 +214,35 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <returns></returns>
     private ContentReferenceModel CreateContentReference(IngestModel ingest, string filename)
     {
+        var publishedOnExpression = ingest.GetConfigurationValue("publishedOnExpression");
+
         var today = GetDateTimeForTimeZone(ingest);
-        var publishedOn = new DateTime(today.Year, today.Month, today.Day, today.Hour, today.Minute, today.Second, today.Kind);
+        DateTime publishedOn;
+        if (!String.IsNullOrWhiteSpace(publishedOnExpression))
+        {
+            try
+            {
+                var match = Regex.Match(filename, publishedOnExpression, RegexOptions.Singleline);
+                var year = String.IsNullOrWhiteSpace(match.Groups["year"].Value) ? today.Year : int.Parse(match.Groups["year"].Value);
+                var month = String.IsNullOrWhiteSpace(match.Groups["month"].Value) ? today.Month : int.Parse(match.Groups["month"].Value);
+                var day = String.IsNullOrWhiteSpace(match.Groups["day"].Value) ? today.Day : int.Parse(match.Groups["day"].Value);
+                var hour = String.IsNullOrWhiteSpace(match.Groups["hour"].Value) ? today.Hour : int.Parse(match.Groups["hour"].Value);
+                var minute = String.IsNullOrWhiteSpace(match.Groups["minute"].Value) ? today.Minute : int.Parse(match.Groups["minute"].Value);
+                var second = String.IsNullOrWhiteSpace(match.Groups["second"].Value) ? today.Second : int.Parse(match.Groups["second"].Value);
+                publishedOn = new DateTime(year, month, day, hour, minute, second, today.Kind);
+
+                // If the published on date is greater than today we will assume it's in the morning.
+                if (today < publishedOn) publishedOn = publishedOn.Add(new TimeSpan(0));
+            }
+            catch (Exception ex)
+            {
+                // Essentially ignore the error and set the published on date to today.
+                this.Logger.LogError(ex, "Regex failed for 'publishedOnExpression': {regex}", publishedOnExpression);
+                publishedOn = new DateTime(today.Year, today.Month, today.Day, today.Hour, today.Minute, today.Second, today.Kind);
+            }
+        }
+        else
+            publishedOn = new DateTime(today.Year, today.Month, today.Day, today.Hour, today.Minute, today.Second, today.Kind);
         return new ContentReferenceModel()
         {
             Source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing source code."),
@@ -238,17 +260,27 @@ public class ImageAction : IngestAction<ImageOptions>
     /// <param name="reference"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private async Task<Confluent.Kafka.DeliveryResult<string, SourceContent>> SendMessageAsync(IngestModel ingest, ContentReferenceModel reference)
+    private async Task<DeliveryResultModel<SourceContent>> SendMessageAsync(IngestModel ingest, ContentReferenceModel reference)
     {
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
         var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
-        var content = new SourceContent(reference.Source, contentType, ingest.ProductId, reference.Uid, $"{ingest.Name} Frontpage", "", "", publishedOn.ToUniversalTime())
+        var content = new SourceContent(
+            this.Options.DataLocation,
+            reference.Source,
+            contentType,
+            ingest.ProductId,
+            reference.Uid,
+            $"{ingest.Name} Frontpage",
+            "",
+            "",
+            publishedOn.ToUniversalTime())
         {
             StreamUrl = ingest.GetConfigurationValue("url"),
-            FilePath = Path.Combine(ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd/}", reference.Uid),
+            FilePath = (ingest.DestinationConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "")
+                .CombineWith($"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}/", reference.Uid),
             Language = ingest.GetConfigurationValue("language")
         };
-        var result = await this.Producer.SendMessageAsync(reference.Topic, content);
+        var result = await this.Api.SendMessageAsync(reference.Topic, content);
         if (result == null) throw new InvalidOperationException($"Failed to receive result from Kafka for {reference.Source}:{reference.Uid}");
         return result;
     }

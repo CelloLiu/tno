@@ -9,8 +9,8 @@ using Confluent.Kafka;
 using System.Text;
 using TNO.Kafka;
 using TNO.Core.Extensions;
-using TNO.API.Areas.Services.Models.Content;
 using TNO.Core.Exceptions;
+using TNO.Entities;
 
 namespace TNO.Services.Transcription;
 
@@ -23,6 +23,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     private CancellationTokenSource? _cancelToken;
     private Task? _consumer;
     private readonly TaskStatus[] _notRunning = new TaskStatus[] { TaskStatus.Canceled, TaskStatus.Faulted, TaskStatus.RanToCompletion };
+    private readonly WorkOrderStatus[] _ignoreWorkOrders = new WorkOrderStatus[] { WorkOrderStatus.Completed, WorkOrderStatus.Cancelled, WorkOrderStatus.Failed };
     private int _retries = 0;
     #endregion
 
@@ -30,27 +31,29 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// <summary>
     /// get - Kafka Consumer object.
     /// </summary>
-    protected IKafkaListener<string, TranscriptRequest> Consumer { get; private set; }
+    protected IKafkaListener<string, TranscriptRequest> Listener { get; private set; }
     #endregion
 
     #region Constructors
     /// <summary>
     /// Creates a new instance of a TranscriptionManager object, initializes with specified parameters.
     /// </summary>
-    /// <param name="consumer"></param>
+    /// <param name="listener"></param>
     /// <param name="api"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
     public TranscriptionManager(
-        IKafkaListener<string, TranscriptRequest> consumer,
+        IKafkaListener<string, TranscriptRequest> listener,
         IApiService api,
         IOptions<TranscriptionOptions> options,
         ILogger<TranscriptionManager> logger)
         : base(api, options, logger)
     {
-        this.Consumer = consumer;
-        this.Consumer.OnError += ConsumerErrorHandler;
-        this.Consumer.OnStop += ConsumerStopHandler;
+        this.Listener = listener;
+        this.Listener.IsLongRunningJob = true;
+        this.Listener.OnError += ListenerErrorHandler;
+        this.Listener.OnStop += ListenerStopHandler;
+        this.Listener.MaxThreads = options.Value.MaxThreads;
     }
     #endregion
 
@@ -61,7 +64,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// <returns></returns>
     public override async Task RunAsync()
     {
-        var delay = _options.DefaultDelayMS;
+        var delay = this.Options.DefaultDelayMS;
 
         // Always keep looping until an unexpected failure occurs.
         while (true)
@@ -73,7 +76,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
                 this.State.Stop();
 
                 // The service is stopping or has stopped, consume should stop too.
-                this.Consumer.Stop();
+                this.Listener.Stop();
             }
             else if (this.State.Status != ServiceStatus.Running)
             {
@@ -83,16 +86,16 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
             {
                 try
                 {
-                    var topics = _options.Topics.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    var topics = this.Options.Topics.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
                     if (topics.Length != 0)
                     {
-                        this.Consumer.Subscribe(topics);
+                        this.Listener.Subscribe(topics);
                         ConsumeMessages();
                     }
                     else if (topics.Length == 0)
                     {
-                        this.Consumer.Stop();
+                        this.Listener.Stop();
                     }
                 }
                 catch (Exception ex)
@@ -120,7 +123,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
             if (_cancelToken?.IsCancellationRequested == false)
                 _cancelToken?.Cancel();
             _cancelToken = new CancellationTokenSource();
-            _consumer = Task.Run(ConsumerHandlerAsync, _cancelToken.Token);
+            _consumer = Task.Run(ListenerHandlerAsync, _cancelToken.Token);
         }
     }
 
@@ -128,16 +131,16 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// Keep consuming messages from Kafka until the service stops running.
     /// </summary>
     /// <returns></returns>
-    private async Task ConsumerHandlerAsync()
+    private async Task ListenerHandlerAsync()
     {
         while (this.State.Status == ServiceStatus.Running &&
             _cancelToken?.IsCancellationRequested == false)
         {
-            await this.Consumer.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
+            await this.Listener.ConsumeAsync(HandleMessageAsync, _cancelToken.Token);
         }
 
         // The service is stopping or has stopped, consume should stop too.
-        this.Consumer.Stop();
+        this.Listener.Stop();
     }
 
     /// <summary>
@@ -147,7 +150,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// <param name="sender"></param>
     /// <param name="e"></param>
     /// <returns>True if the consumer should retry the message.</returns>
-    private ConsumerAction ConsumerErrorHandler(object sender, ErrorEventArgs e)
+    private void ListenerErrorHandler(object sender, ErrorEventArgs e)
     {
         // Only the first retry will count as a failure.
         if (_retries == 0)
@@ -155,10 +158,9 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
 
         if (e.GetException() is ConsumeException consume)
         {
-            return consume.Error.IsFatal ? ConsumerAction.Stop : ConsumerAction.Retry;
+            if (consume.Error.IsFatal)
+                this.Listener.Stop();
         }
-
-        return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
     }
 
     /// <summary>
@@ -166,7 +168,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void ConsumerStopHandler(object sender, EventArgs e)
+    private void ListenerStopHandler(object sender, EventArgs e)
     {
         if (_consumer != null &&
             !_notRunning.Contains(_consumer.Status) &&
@@ -182,56 +184,68 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     /// </summary>
     /// <param name="result"></param>
     /// <returns></returns>
-    private async Task<ConsumerAction> HandleMessageAsync(ConsumeResult<string, TranscriptRequest> result)
+    private async Task HandleMessageAsync(ConsumeResult<string, TranscriptRequest> result)
     {
-        // The service has stopped, so to should consuming messages.
-        if (this.State.Status != ServiceStatus.Running)
+        try
         {
-            this.Consumer.Stop();
-            this.State.Stop();
-            return ConsumerAction.Stop;
-        }
-        else
-        {
-            try
+            var request = result.Message.Value;
+            // The service has stopped, so to should consuming messages.
+            if (this.State.Status != ServiceStatus.Running)
             {
-                var content = await _api.FindContentByIdAsync(result.Message.Value.ContentId);
-                if (content != null)
+                this.Listener.Stop();
+                this.State.Stop();
+            }
+            else
+            {
+                request.Content = await this.Api.FindContentByIdAsync(request.ContentId);
+                if (request.Content != null)
                 {
                     // TODO: Handle multi-threading so that more than one transcription can be performed at a time.
-                    await UpdateTranscriptionAsync(content);
+                    await UpdateTranscriptionAsync(request);
                 }
                 else
                 {
                     // Identify requests for transcription for content that does not exist.
-                    this.Logger.LogWarning("Content does not exist for this message. Key: {Key}, Content ID: {ContentId}", result.Message.Key, result.Message.Value.ContentId);
+                    this.Logger.LogWarning("Content does not exist for this message. Key: {Key}, Content ID: {ContentId}", result.Message.Key, request.ContentId);
                 }
+
+                // Inform Kafka this message is completed.
+                this.Listener.Commit(result);
+                this.Listener.Resume();
 
                 // Successful run clears any errors.
                 this.State.ResetFailures();
                 _retries = 0;
-                return ConsumerAction.Proceed;
             }
-            catch (HttpClientRequestException ex)
+        }
+        catch (Exception ex)
+        {
+            if (ex is HttpClientRequestException httpEx)
             {
-                this.Logger.LogError(ex, "HTTP exception while consuming. {response}", ex.Data["body"] ?? "");
+                this.Logger.LogError(ex, "HTTP exception while consuming. {response}", httpEx.Data["body"] ?? "");
             }
-
-            return _options.RetryLimit > _retries++ ? ConsumerAction.Retry : ConsumerAction.Stop;
+            else
+            {
+                this.Logger.LogError(ex, "Failed to handle message");
+            }
+            ListenerErrorHandler(this, new ErrorEventArgs(ex));
         }
     }
 
     /// <summary>
     /// Make a request to generate a transcription for the specified 'content'.
     /// </summary>
-    /// <param name="content"></param>
+    /// <param name="request"></param>
     /// <returns></returns>
-    private async Task UpdateTranscriptionAsync(ContentModel content)
+    /// <exception cref="ArgumentException"></exception>
+    private async Task UpdateTranscriptionAsync(TranscriptRequest request)
     {
+        if (request.Content == null) throw new ArgumentException("Request must include the content", nameof(request));
+
         // TODO: Handle different storage locations.
         // Remote storage locations may not be easily accessible by this service.
-        var path = content.FileReferences.FirstOrDefault()?.Path;
-        var safePath = Path.Join(_options.VolumePath, path.MakeRelativePath());
+        var path = request.Content.FileReferences.FirstOrDefault()?.Path;
+        var safePath = Path.Join(this.Options.VolumePath, path.MakeRelativePath());
 
         if (File.Exists(safePath))
         {
@@ -244,39 +258,73 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
 
             if (!String.IsNullOrEmpty(safePath))
             {
-                this.Logger.LogInformation("Transcription requested.  Content ID: {Id}", content.Id);
+                this.Logger.LogInformation("Transcription requested.  Content ID: {Id}", request.Content.Id);
+                var hasWorkOrder = await UpdateWorkOrderAsync(request, WorkOrderStatus.InProgress);
 
-                var original = content.Body;
-                var fileBytes = File.ReadAllBytes(safePath);
-                var transcript = await RequestTranscriptionAsync(fileBytes); // TODO: Extract language from data source.
-
-                // Fetch content again because it may have been updated by an external source.
-                // This can introduce issues if the transcript has been edited as now it will overwrite what was changed.
-                var result = await _api.FindContentByIdAsync(content.Id);
-                if (result != null && !String.IsNullOrWhiteSpace(transcript))
+                if (hasWorkOrder)
                 {
-                    // The transcription may have been edited during this process and now those changes will be lost.
-                    if (String.CompareOrdinal(original, result.Body) != 0) this.Logger.LogWarning("Transcription will be overwritten.  Content ID: {Id}", content.Id);
+                    var original = request.Content.Body;
+                    var fileBytes = File.ReadAllBytes(safePath);
+                    var transcript = await RequestTranscriptionAsync(fileBytes); // TODO: Extract language from data source.
 
-                    result.Body = transcript;
-                    await _api.UpdateContentAsync(result); // TODO: This can result in an editor getting a optimistic concurrency error.
-                    this.Logger.LogInformation("Transcription updated.  Content ID: {Id}", content.Id);
-                }
-                else if (String.IsNullOrWhiteSpace(transcript))
-                {
-                    this.Logger.LogWarning("Content did not generate a transcript. Content ID: {Id}", content.Id);
+                    // Fetch content again because it may have been updated by an external source.
+                    // This can introduce issues if the transcript has been edited as now it will overwrite what was changed.
+                    var content = await this.Api.FindContentByIdAsync(request.Content.Id);
+                    if (content != null && !String.IsNullOrWhiteSpace(transcript))
+                    {
+                        // The transcription may have been edited during this process and now those changes will be lost.
+                        if (String.CompareOrdinal(original, content.Body) != 0) this.Logger.LogWarning("Transcription will be overwritten.  Content ID: {Id}", request.Content.Id);
+
+                        content.Body = transcript;
+                        await this.Api.UpdateContentAsync(content); // TODO: This can result in an editor getting a optimistic concurrency error.
+                        this.Logger.LogInformation("Transcription updated.  Content ID: {Id}", request.Content.Id);
+
+                        await UpdateWorkOrderAsync(request, WorkOrderStatus.Completed);
+                    }
+                    else if (String.IsNullOrWhiteSpace(transcript))
+                    {
+                        this.Logger.LogWarning("Content did not generate a transcript. Content ID: {Id}", request.Content.Id);
+                        await UpdateWorkOrderAsync(request, WorkOrderStatus.Failed);
+                    }
+                    else
+                    {
+                        // The content is no longer available for some reason.
+                        this.Logger.LogError("Content no longer exists. Content ID: {Id}", request.Content.Id);
+                        await UpdateWorkOrderAsync(request, WorkOrderStatus.Failed);
+                    }
                 }
                 else
                 {
-                    // The content is no longer available for some reason.
-                    this.Logger.LogError("Content no longer exists. Content ID: {Id}", content.Id);
+                    this.Logger.LogWarning("Request ignored because it does not have a work order");
                 }
             }
         }
         else
         {
-            this.Logger.LogError("File does not exist for content. Content ID: {Id}, Path: {path}", content.Id, safePath);
+            this.Logger.LogError("File does not exist for content. Content ID: {Id}, Path: {path}", request.Content.Id, safePath);
+            await UpdateWorkOrderAsync(request, WorkOrderStatus.Failed);
         }
+    }
+
+    /// <summary>
+    /// Update the work order (if it exists) with the specified 'status'.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="status"></param>
+    /// <returns>Whether a work order exists or is not required.</returns>
+    private async Task<bool> UpdateWorkOrderAsync(TranscriptRequest request, WorkOrderStatus status)
+    {
+        if (request.WorkOrderId > 0)
+        {
+            request.WorkOrder = await this.Api.FindWorkOrderAsync(request.WorkOrderId);
+            if (request.WorkOrder != null && !_ignoreWorkOrders.Contains(request.WorkOrder.Status))
+            {
+                request.WorkOrder.Status = status;
+                request.WorkOrder = await this.Api.UpdateWorkOrderAsync(request.WorkOrder);
+                return true;
+            }
+        }
+        return !this.Options.AcceptOnlyWorkOrders;
     }
 
     /// <summary>
@@ -289,7 +337,7 @@ public class TranscriptionManager : ServiceManager<TranscriptionOptions>
     {
         var sem = new Semaphore(0, 1);
         var sb = new StringBuilder();
-        var config = SpeechTranslationConfig.FromSubscription(_options.AzureCognitiveServicesKey, _options.AzureRegion);
+        var config = SpeechTranslationConfig.FromSubscription(this.Options.AzureCognitiveServicesKey, this.Options.AzureRegion);
         config.SpeechRecognitionLanguage = language;
 
         // TODO: media format should be based on configuration

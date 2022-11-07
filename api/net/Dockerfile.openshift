@@ -1,0 +1,43 @@
+ARG BUILD_CONFIGURATION=Release
+FROM image-registry.apps.silver.devops.gov.bc.ca/9b301c-tools/aspnet:6.0 AS base
+EXPOSE 443 8080
+
+# Copy csproj and restore as distinct layers
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet tool install --global dotnet-ef --version 6.0.3
+
+WORKDIR /src/api/net
+COPY api/net/ .
+COPY libs/net/ /src/libs/net/
+
+RUN dotnet restore
+RUN dotnet publish "TNO.API.csproj" -c "$BUILD_CONFIGURATION" -o /app/publish
+
+# Runtime image
+FROM base AS final
+
+WORKDIR /app
+COPY --from=build /app/publish .
+COPY api/net/entrypoint.sh .
+RUN chmod +x /app/entrypoint.sh
+
+# RUN useradd --create-home appuser
+
+# This volume is the local storage for uploaded files.
+RUN mkdir /data
+VOLUME /data
+RUN chgrp -R 0 /data && \
+    chmod -R g=u /data
+
+# This volume is the local storage for capture A/V files.
+RUN mkdir /av
+VOLUME /av
+RUN chgrp -R 0 /av && \
+    chmod -R g=u /av
+
+# USER appuser
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# ENTRYPOINT ["tail", "-f", "/dev/null"]

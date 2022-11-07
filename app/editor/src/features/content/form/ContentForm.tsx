@@ -12,7 +12,6 @@ import {
   FormikTextArea,
 } from 'components/formik';
 import { Modal } from 'components/modal';
-import { FormikProps } from 'formik';
 import {
   ActionName,
   ContentTypeName,
@@ -22,16 +21,37 @@ import {
   useSourceOptions,
   useTooltips,
   useUserLookups,
+  WorkOrderStatusName,
+  WorkOrderTypeName,
 } from 'hooks';
 import { ContentStatusName, IContentModel, ValueType } from 'hooks/api-editor';
 import { useModal } from 'hooks/modal';
 import { useTabValidationToasts } from 'hooks/useTabValidationToasts';
 import React from 'react';
-import { FaBars, FaChevronLeft, FaChevronRight, FaGripLines, FaSpinner } from 'react-icons/fa';
+import {
+  FaBars,
+  FaCheckCircle,
+  FaChevronLeft,
+  FaChevronRight,
+  FaGripLines,
+  FaSpinner,
+} from 'react-icons/fa';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { useContent, useLookup } from 'store/hooks';
-import { Button, ButtonVariant, Col, FieldSize, Row, Show, Tab, Tabs } from 'tno-core';
+import { useContent, useLookup, useWorkOrders } from 'store/hooks';
+import { IAjaxRequest } from 'store/slices';
+import {
+  Button,
+  ButtonVariant,
+  Col,
+  FieldSize,
+  Row,
+  Show,
+  Spinner,
+  SpinnerVariant,
+  Tab,
+  Tabs,
+} from 'tno-core';
 import { hasErrors } from 'utils';
 
 import { ContentFormSchema } from '../validation';
@@ -45,36 +65,32 @@ import {
 import { defaultFormValues } from './constants';
 import { IContentForm } from './interfaces';
 import * as styled from './styled';
-import { isSnippetForm, switchStatus, toForm, toModel } from './utils';
+import { isImageForm, isSnippetForm, switchStatus, toForm, toModel } from './utils';
 
 export interface IContentFormProps {
-  /** The content type this form will create */
-  contentType: ContentTypeName;
+  /** Control what form elements are visible. */
+  contentType?: ContentTypeName;
 }
 
 /**
  * Snippet Form edit and create form for default view. Path will be appended with content id.
+ * @param param0 Component properties.
  * @returns Edit/Create Form for Content
  */
-export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initContentType }) => {
+export const ContentForm: React.FC<IContentFormProps> = ({
+  contentType: initContentType = ContentTypeName.Snippet,
+}) => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [{ sources, tonePools, series }, { getSeries }] = useLookup();
   const [
     { content: page },
-    {
-      getContent,
-      addContent,
-      updateContent,
-      deleteContent,
-      upload,
-      publishContent,
-      attach,
-      transcribe,
-      nlp,
-    },
+    { getContent, addContent, updateContent, deleteContent, upload, attach },
   ] = useContent();
-  const { isShowing, toggle } = useModal();
+  const [, { transcribe, nlp }] = useWorkOrders();
+  const { isShowing: showDeleteModal, toggle: toggleDelete } = useModal();
+  const { isShowing: showTranscribeModal, toggle: toggleTranscribe } = useModal();
+  const { isShowing: showNLPModal, toggle: toggleNLP } = useModal();
   const { userId } = useUserLookups();
   const sourceOptions = useSourceOptions();
   const productOptions = useProductOptions();
@@ -94,12 +110,33 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
   const indexPosition = !!id ? page?.items.findIndex((c) => c.id === +id) ?? -1 : -1;
   const enablePrev = indexPosition > 0;
   const enableNext = indexPosition < (page?.items.length ?? 0) - 1;
+  const isTranscribing = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.Transcription &&
+      [WorkOrderStatusName.Submitted, WorkOrderStatusName.InProgress].includes(i.status),
+  );
+  const isTranscribed = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.Transcription && i.status === WorkOrderStatusName.Completed,
+  );
+  const isNLPing = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
+      [WorkOrderStatusName.Submitted, WorkOrderStatusName.InProgress].includes(i.status),
+  );
+  const isNLPed = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
+      i.status === WorkOrderStatusName.Completed,
+  );
 
   const determineActions = () => {
     switch (contentType) {
       case ContentTypeName.PrintContent:
         return (a: IActionModel) =>
           a.valueType === ValueType.Boolean && a.name !== ActionName.NonQualified;
+      case ContentTypeName.Image:
+        return (a: IActionModel) => a.name === ActionName.FrontPage;
       case ContentTypeName.Snippet:
       // TODO: Determine actions for remaining content types
       // eslint-disable-next-line no-fallthrough
@@ -166,9 +203,13 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
 
       if (!originalId)
         navigate(
-          `${isSnippetForm(contentResult?.contentType) ? '/snippets/' : '/papers/'}${
-            combined ? '/contents/combined/' : ''
-          }${contentResult.id}`,
+          `${
+            isImageForm(contentResult?.contentType)
+              ? '/images/'
+              : isSnippetForm(contentResult?.contentType)
+              ? '/snippets/'
+              : '/papers/'
+          }${combined ? '/contents/combined/' : ''}${contentResult.id}`,
         );
       if (!!contentResult?.seriesId) {
         // A dynamically added series has been added, fetch the latests series.
@@ -184,34 +225,20 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
     }
   };
 
-  const handlePublish = async (props: FormikProps<IContentForm>) => {
-    const values = props.values;
-    await props.validateForm(values);
-
-    if (props.isValid) {
-      const defaultTonePool = tonePools.find((t) => t.name === 'Default');
-      values.tonePools = !!defaultTonePool ? [{ ...defaultTonePool, value: +values.tone }] : [];
-
-      try {
-        const model = toModel(values);
-        const result = await publishContent(model);
-        setContent(toForm(result));
-        toast.success(
-          `"${values.headline}" has successfully requested publishing and has been saved.`,
-        );
-      } catch {
-        // Ignore this failure it is handled by our global ajax requests.
-      }
-    }
-  };
-
   const handleTranscribe = async (values: IContentForm) => {
     try {
+      // TODO: Only save when required.
       // Save before submitting request.
       await handleSubmit(values);
-      await transcribe(toModel(values));
+      const response = await transcribe(toModel(values));
+      setContent({ ...content, workOrders: [response.data, ...content.workOrders] });
 
-      toast.success(`"${values.headline}" has successfully requested a transcript`);
+      if (response.status === 200) toast.success('A transcript has been requested');
+      else if (response.status === 208) {
+        if (response.data.status === WorkOrderStatusName.Completed)
+          toast.warn('Content has already been transcribed');
+        else toast.warn(`An active request for transcription already exists`);
+      }
     } catch {
       // Ignore this failure it is handled by our global ajax requests.
     }
@@ -219,13 +246,18 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
 
   const handleNLP = async (values: IContentForm) => {
     try {
+      // TODO: Only save when required.
       // Save before submitting request.
       await handleSubmit(values);
-      await nlp(toModel(values));
+      const response = await nlp(toModel(values));
+      setContent({ ...content, workOrders: [response.data, ...content.workOrders] });
 
-      toast.success(
-        `"${values.headline}" has successfully requested a Natural Language Processing`,
-      );
+      if (response.status === 200) toast.success('An NLP has been requested');
+      else if (response.status === 208) {
+        if (response.data.status === WorkOrderStatusName.Completed)
+          toast.warn('Content has already been processed by NLP');
+        else toast.warn(`An active request for NLP already exists`);
+      }
     } catch {
       // Ignore this failure it is handled by our global ajax requests.
     }
@@ -253,7 +285,8 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                 variant={ButtonVariant.secondary}
                 tooltip="Full Page View"
                 onClick={() => {
-                  if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
+                  if (isImageForm(contentType)) navigate(`/images/${id}`);
+                  else if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                   else navigate(`/papers/${id}`);
                 }}
               >
@@ -268,6 +301,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                   const id = page?.items[indexPosition - 1]?.id;
                   if (!!id) {
                     if (!!combined) navigate(`/contents/combined/${id}`);
+                    else if (isImageForm(contentType)) navigate(`/images/${id}`);
                     else if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                     else navigate(`/papers/${id}`);
                   }
@@ -282,6 +316,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                 onClick={() => {
                   const id = page?.items[indexPosition + 1]?.id;
                   if (combined) navigate(`/contents/combined/${id}`);
+                  else if (isImageForm(contentType)) navigate(`/images/${id}`);
                   else if (isSnippetForm(contentType)) navigate(`/snippets/${id}`);
                   else navigate(`/papers/${id}`);
                 }}
@@ -304,6 +339,9 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
             onSubmit={handleSubmit}
             validationSchema={ContentFormSchema}
             initialValues={content}
+            loading={(request: IAjaxRequest) =>
+              !request.isSilent && request.group.some((g) => g === 'content' || g === 'lookup')
+            }
           >
             {(props) => (
               <Col>
@@ -341,7 +379,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                             label="Headline"
                             value={props.values.headline}
                           />
-                          <Show visible={!isSnippetForm(contentType)}>
+                          <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
                             <FormikText name="byline" label="Byline" required />
                           </Show>
                         </Col>
@@ -372,24 +410,34 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                               props.setFieldValue('licenseId', source.licenseId);
                             }
                           }}
-                          options={sourceOptions}
+                          options={sourceOptions.filter(
+                            (x) =>
+                              !isImageForm(contentType) ||
+                              x.label.includes('(TC)') ||
+                              x.label.includes('(PROVINCE)') ||
+                              x.label.includes('(GLOBE)') ||
+                              x.label.includes('(POST)') ||
+                              x.label.includes('(SUN)'),
+                          )}
                           required={!props.values.otherSource}
                           isDisabled={!!props.values.tempSource}
                         />
                         <FormikHidden name="otherSource" />
-                        <FormikText
-                          name="tempSource"
-                          label="Other Source"
-                          onChange={(e) => {
-                            const value = e.currentTarget.value;
-                            props.setFieldValue('tempSource', value);
-                            props.setFieldValue('otherSource', value);
-                            if (!!value) {
-                              props.setFieldValue('sourceId', undefined);
-                            }
-                          }}
-                          required={!!props.values.tempSource}
-                        />
+                        <Show visible={!isImageForm(contentType)}>
+                          <FormikText
+                            name="tempSource"
+                            label="Other Source"
+                            onChange={(e) => {
+                              const value = e.currentTarget.value;
+                              props.setFieldValue('tempSource', value);
+                              props.setFieldValue('otherSource', value);
+                              if (!!value) {
+                                props.setFieldValue('sourceId', undefined);
+                              }
+                            }}
+                            required={!!props.values.tempSource}
+                          />
+                        </Show>
                       </Row>
                       <Row>
                         <Col grow={1}>
@@ -403,13 +451,13 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                             required
                           />
                         </Col>
-                        <Show visible={!isSnippetForm(contentType)}>
+                        <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
                           <Col grow={1}>
                             <FormikText name="edition" label="Edition" />
                           </Col>
                         </Show>
                       </Row>
-                      <Show visible={!isSnippetForm(contentType)}>
+                      <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
                         <Row>
                           <FormikText name="section" label="Section" required />
                           <FormikText name="page" label="Page" />
@@ -445,14 +493,16 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                           filter={determineActions()}
                         />
                       </Col>
-                      <Row className="commentary">
-                        <ContentActions filter={(a) => a.valueType !== ValueType.Boolean} />
-                      </Row>
+                      <Show visible={!isImageForm(contentType)}>
+                        <Row className="commentary">
+                          <ContentActions filter={(a) => a.valueType !== ValueType.Boolean} />
+                        </Row>
+                      </Show>
                     </Col>
                   </Show>
                 </Row>
                 <Row>
-                  <Show visible={isSnippetForm(contentType)}>
+                  <Show visible={isSnippetForm(contentType) || isImageForm(contentType)}>
                     <Tabs
                       className={`${combined ? 'fit' : 'expand'} ${size === 1 ? 'small' : 'large'}`}
                       tabs={
@@ -475,7 +525,14 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                               label="Transcript"
                               onClick={() => setActive('transcript')}
                               active={active === 'transcript'}
-                            />
+                            >
+                              <Show visible={isTranscribing}>
+                                <Spinner variant={SpinnerVariant.light} size="0.5em" />
+                              </Show>
+                              <Show visible={isTranscribed && !isTranscribing}>
+                                <FaCheckCircle className="spinner" />
+                              </Show>
+                            </Tab>
                             <Tab
                               label="Clips"
                               onClick={() => setActive('clips')}
@@ -484,11 +541,20 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                               showErrorOnSave={{ value: true, savePressed: savePressed }}
                             />
                           </Show>
-                          <Tab
-                            label="Labels"
-                            onClick={() => setActive('labels')}
-                            active={active === 'labels'}
-                          />
+                          <Show visible={props.values.contentType !== ContentTypeName.Image}>
+                            <Tab
+                              label="Labels"
+                              onClick={() => setActive('labels')}
+                              active={active === 'labels'}
+                            >
+                              <Show visible={isNLPing}>
+                                <Spinner variant={SpinnerVariant.light} size="0.5em" />
+                              </Show>
+                              <Show visible={isNLPed && !isNLPing}>
+                                <FaCheckCircle className="spinner" />
+                              </Show>
+                            </Tab>
+                          </Show>
                         </>
                       }
                     >
@@ -515,7 +581,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                       </Show>
                     </Tabs>
                   </Show>
-                  <Show visible={!isSnippetForm(contentType)}>
+                  <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
                     <ContentSummaryForm
                       content={content}
                       setContent={setContent}
@@ -532,20 +598,17 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                     Save
                   </Button>
                   <Show visible={!!props.values.id}>
-                    <Button
-                      onClick={() => handlePublish(props)}
-                      variant={ButtonVariant.success}
-                      disabled={props.isSubmitting}
-                    >
-                      Publish
-                    </Button>
                     <Show
                       visible={
                         !!props.values.id && props.values.contentType === ContentTypeName.Snippet
                       }
                     >
                       <Button
-                        onClick={() => handleTranscribe(props.values)}
+                        onClick={() =>
+                          isTranscribed && !isTranscribing
+                            ? toggleTranscribe()
+                            : handleTranscribe(props.values)
+                        }
                         variant={ButtonVariant.action}
                         disabled={
                           props.isSubmitting ||
@@ -553,21 +616,25 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                           (props.values.fileReferences.length > 0 &&
                             !props.values.fileReferences[0].isUploaded)
                         }
+                        tooltip="Request a transcription"
                       >
-                        Request Transcript
+                        Transcribe
                       </Button>
                     </Show>
                     <Show visible={!!props.values.id && props.values.body.length > 0}>
                       <Button
-                        onClick={() => handleNLP(props.values)}
+                        onClick={() =>
+                          isNLPed && !isNLPing ? toggleNLP() : handleNLP(props.values)
+                        }
                         variant={ButtonVariant.action}
                         disabled={props.isSubmitting}
+                        tooltip="Request Natural Language Processing"
                       >
-                        Request NLP
+                        NLP
                       </Button>
                     </Show>
                     <Button
-                      onClick={toggle}
+                      onClick={toggleDelete}
                       variant={ButtonVariant.danger}
                       disabled={props.isSubmitting}
                     >
@@ -578,16 +645,46 @@ export const ContentForm: React.FC<IContentFormProps> = ({ contentType: initCont
                 <Modal
                   headerText="Confirm Removal"
                   body="Are you sure you wish to delete this content?"
-                  isShowing={isShowing}
-                  hide={toggle}
+                  isShowing={showDeleteModal}
+                  hide={toggleDelete}
                   type="delete"
                   confirmText="Yes, Delete It"
                   onConfirm={async () => {
                     try {
                       await deleteContent(toModel(props.values));
                     } finally {
-                      toggle();
+                      toggleDelete();
                       navigate('/contents');
+                    }
+                  }}
+                />
+                <Modal
+                  headerText="Confirm Transcript Request"
+                  body="Content has already been transcribed, do you want to transcribe again?"
+                  isShowing={showTranscribeModal}
+                  hide={toggleTranscribe}
+                  type="default"
+                  confirmText="Yes, transcribe"
+                  onConfirm={async () => {
+                    try {
+                      await handleTranscribe(props.values);
+                    } finally {
+                      toggleTranscribe();
+                    }
+                  }}
+                />
+                <Modal
+                  headerText="Confirm NLP Request"
+                  body="Content has already been Natural Language Processed, do you want to process again?"
+                  isShowing={showNLPModal}
+                  hide={toggleNLP}
+                  type="default"
+                  confirmText="Yes, process"
+                  onConfirm={async () => {
+                    try {
+                      await handleNLP(props.values);
+                    } finally {
+                      toggleNLP();
                     }
                   }}
                 />

@@ -5,10 +5,11 @@ import { useModal } from 'hooks';
 import { IIngestModel } from 'hooks/api-editor';
 import { IngestSchema } from 'hooks/api-editor/validation';
 import React from 'react';
+import { FaEye, FaEyeSlash, FaSpinner } from 'react-icons/fa';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useIngests } from 'store/hooks/admin';
-import { Button, ButtonVariant, Col, Row, Tab, Tabs } from 'tno-core';
+import { Button, ButtonVariant, Col, Row, Show, Tab, Tabs } from 'tno-core';
 
 import { IngestStatus } from '.';
 import { defaultIngest } from './constants';
@@ -23,6 +24,7 @@ export const IngestForm: React.FC<IIngestProps> = (props) => {
   const { isShowing, toggle } = useModal();
 
   const ingestId = Number(id);
+  const [showStatus, setShowStatus] = React.useState<boolean>(true);
   const [ingest, setIngest] = React.useState<IIngestModel>((state as any)?.ingest ?? defaultIngest);
   const navigate = useNavigate();
 
@@ -48,6 +50,13 @@ export const IngestForm: React.FC<IIngestProps> = (props) => {
     } catch {}
   };
 
+  const reload = async () => {
+    try {
+      const data = await api.getIngest(ingestId);
+      setIngest({ ...data });
+    } catch {}
+  };
+
   const hasErrors = (errors: any, props: string[]) => {
     return props.some((p) => !!errors[p]);
   };
@@ -64,6 +73,12 @@ export const IngestForm: React.FC<IIngestProps> = (props) => {
         <Col flex="1" className="info">
           <p>This provides a way to configure ingestion services.</p>
         </Col>
+        <Button onClick={() => setShowStatus(!showStatus)} tooltip={'Toggle status information'}>
+          {showStatus ? <FaEyeSlash /> : <FaEye />}
+        </Button>
+        <Button variant={ButtonVariant.secondary} tooltip="Reload" onClick={() => reload()}>
+          <FaSpinner />
+        </Button>
       </Row>
       <FormikForm
         initialValues={ingest}
@@ -79,6 +94,9 @@ export const IngestForm: React.FC<IIngestProps> = (props) => {
         {({ isSubmitting, errors }) => (
           <Row>
             <Col flex="2 1">
+              <Show visible={showStatus}>
+                <IngestStatus className="status" flex="1 1" />
+              </Show>
               <Tabs
                 tabs={
                   <>
@@ -134,7 +152,6 @@ export const IngestForm: React.FC<IIngestProps> = (props) => {
                 />
               </Tabs>
             </Col>
-            <IngestStatus className="status" flex="1 1" />
           </Row>
         )}
       </FormikForm>

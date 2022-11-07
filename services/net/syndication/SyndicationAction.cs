@@ -35,10 +35,6 @@ public class SyndicationAction : IngestAction<SyndicationOptions>
     #endregion
 
     #region Properties
-    /// <summary>
-    /// get - Kafka messenger.
-    /// </summary>
-    protected IKafkaMessenger Producer { get; private set; }
     #endregion
 
     #region Constructors
@@ -47,13 +43,11 @@ public class SyndicationAction : IngestAction<SyndicationOptions>
     /// </summary>
     /// <param name="httpClient"></param>
     /// <param name="api"></param>
-    /// <param name="producer"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
-    public SyndicationAction(IHttpRequestClient httpClient, IApiService api, IKafkaMessenger producer, IOptions<SyndicationOptions> options, ILogger<SyndicationAction> logger) : base(api, options)
+    public SyndicationAction(IHttpRequestClient httpClient, IApiService api, IOptions<SyndicationOptions> options, ILogger<SyndicationAction> logger) : base(api, options)
     {
         _httpClient = httpClient;
-        this.Producer = producer;
         _logger = logger;
     }
     #endregion
@@ -121,12 +115,12 @@ public class SyndicationAction : IngestAction<SyndicationOptions>
                 if (reference != null && sendMessage)
                 {
                     // Send item to Kafka.
-                    var result = await this.Producer.SendMessageAsync(manager.Ingest.Topic, CreateSourceContent(manager.Ingest, item));
+                    var result = await this.Api.SendMessageAsync(manager.Ingest.Topic, CreateSourceContent(manager.Ingest, item));
 
                     // Update content reference with Kafka response.
                     if (result != null)
                     {
-                        await UpdateContentReferenceAsync(reference, result);
+                        await UpdateContentReferenceAsync(reference, item);
                     }
                 }
             }
@@ -226,7 +220,16 @@ public class SyndicationAction : IngestAction<SyndicationOptions>
         var (title, summary, body) = HandleInvalidEncoding(item);
         var source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing source code.");
         var contentType = ingest.IngestType?.ContentType ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing ingest content type.");
-        return new SourceContent(source, contentType, ingest.ProductId, item.Id, title, summary, body, item.PublishDate.UtcDateTime)
+        return new SourceContent(
+            this.Options.DataLocation,
+            source,
+            contentType,
+            ingest.ProductId,
+            item.Id,
+            title,
+            summary,
+            body,
+            item.PublishDate.UtcDateTime)
         {
             Link = item.Links.FirstOrDefault(l => l.RelationshipType == "alternate")?.Uri.ToString() ?? "",
             Copyright = item.Copyright?.Text ?? "",

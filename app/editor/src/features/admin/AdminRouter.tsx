@@ -9,6 +9,8 @@ import {
   ConnectionForm,
   ConnectionList,
   ContentReferenceList,
+  DataLocationForm,
+  DataLocationList,
   IngestDetails,
   IngestForm,
   IngestList,
@@ -30,6 +32,8 @@ import {
   TagsForm,
   UserForm,
   UserList,
+  WorkOrderForm,
+  WorkOrderList,
 } from '.';
 
 export const AdminRouter: React.FC = () => {
@@ -67,6 +71,9 @@ export const AdminRouter: React.FC = () => {
       <Route path="connections" element={<ConnectionList />} />
       <Route path="connections/:id" element={<ConnectionForm />} />
 
+      <Route path="data/locations" element={<DataLocationList />} />
+      <Route path="data/locations/:id" element={<DataLocationForm />} />
+
       <Route path="ingest/types" element={<IngestTypeList />} />
       <Route path="ingest/types/:id" element={<IngestTypeForm />} />
 
@@ -78,6 +85,9 @@ export const AdminRouter: React.FC = () => {
         <Route path="settings" element={<IngestSettings />} />
         <Route path="ingesting" element={<ContentReferenceList />} />
       </Route>
+
+      <Route path="work/orders" element={<WorkOrderList />} />
+      <Route path="work/orders/:id" element={<WorkOrderForm />} />
     </Routes>
   );
 };

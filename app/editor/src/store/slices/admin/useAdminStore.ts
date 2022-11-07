@@ -1,8 +1,10 @@
 import { IUserListFilter } from 'features/admin/users/interfaces/IUserListFilter';
+import { IWorkOrderListFilter } from 'features/admin/work-orders/interfaces/IWorkOrderListFilter';
 import {
   IActionModel,
   ICategoryModel,
   IConnectionModel,
+  IDataLocationModel,
   IIngestModel,
   IIngestTypeModel,
   ILicenseModel,
@@ -12,6 +14,7 @@ import {
   ISourceModel,
   ITagModel,
   IUserModel,
+  IWorkOrderModel,
 } from 'hooks/api-editor';
 import React from 'react';
 import { useAppDispatch, useAppSelector } from 'store';
@@ -20,6 +23,7 @@ import {
   storeAdminActions,
   storeAdminCategories,
   storeAdminConnections,
+  storeAdminDataLocations,
   storeAdminIngests,
   storeAdminIngestTypes,
   storeAdminLicenses,
@@ -29,24 +33,29 @@ import {
   storeAdminTags,
   storeAdminUserFilter,
   storeAdminUsers,
+  storeAdminWorkOrderFilter,
+  storeAdminWorkOrders,
 } from '.';
 import { IAdminState } from './interfaces';
 
 export interface IAdminProps {}
 
 export interface IAdminStore {
-  storeUserFilter: (filter: IUserListFilter) => void;
   storeSources: (sources: ISourceModel[]) => void;
-  storeConnections: (products: IConnectionModel[]) => void;
+  storeConnections: (connections: IConnectionModel[]) => void;
+  storeDataLocations: (dataLocations: IDataLocationModel[]) => void;
   storeProducts: (products: IProductModel[]) => void;
-  storeLicenses: (products: ILicenseModel[]) => void;
+  storeLicenses: (licenses: ILicenseModel[]) => void;
   storeIngests: (ingests: IIngestModel[]) => void;
   storeIngestTypes: (ingestTypes: IIngestTypeModel[]) => void;
   storeCategories: (categories: ICategoryModel[]) => void;
+  storeUserFilter: (filter: IUserListFilter) => void;
   storeUsers: (users: IPaged<IUserModel>) => void;
   storeTags: (tags: ITagModel[]) => void;
   storeActions: (actions: IActionModel[]) => void;
   storeSeries: (series: ISeriesModel[]) => void;
+  storeWorkOrderFilter: (filter: IWorkOrderListFilter) => void;
+  storeWorkOrders: (users: IPaged<IWorkOrderModel>) => void;
 }
 
 export const useAdminStore = (props?: IAdminProps): [IAdminState, IAdminStore] => {
@@ -61,6 +70,9 @@ export const useAdminStore = (props?: IAdminProps): [IAdminState, IAdminStore] =
       storeConnections: (connections: IConnectionModel[]) => {
         dispatch(storeAdminConnections(connections));
       },
+      storeDataLocations: (dataLocations: IDataLocationModel[]) => {
+        dispatch(storeAdminDataLocations(dataLocations));
+      },
       storeProducts: (products: IProductModel[]) => {
         dispatch(storeAdminProducts(products));
       },
@@ -72,6 +84,9 @@ export const useAdminStore = (props?: IAdminProps): [IAdminState, IAdminStore] =
       },
       storeIngestTypes: (ingestTypes: IIngestTypeModel[]) => {
         dispatch(storeAdminIngestTypes(ingestTypes));
+      },
+      storeUserFilter: (filter: IUserListFilter) => {
+        dispatch(storeAdminUserFilter(filter));
       },
       storeUsers: (users: IPaged<IUserModel>) => {
         dispatch(storeAdminUsers(users));
@@ -88,8 +103,11 @@ export const useAdminStore = (props?: IAdminProps): [IAdminState, IAdminStore] =
       storeSeries: (series: ISeriesModel[]) => {
         dispatch(storeAdminSeries(series));
       },
-      storeUserFilter: (filter: IUserListFilter) => {
-        dispatch(storeAdminUserFilter(filter));
+      storeWorkOrderFilter: (filter: IWorkOrderListFilter) => {
+        dispatch(storeAdminWorkOrderFilter(filter));
+      },
+      storeWorkOrders: (workOrders: IPaged<IWorkOrderModel>) => {
+        dispatch(storeAdminWorkOrders(workOrders));
       },
     }),
     [dispatch],

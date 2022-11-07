@@ -2,7 +2,6 @@ import {
   IActionModel,
   ICacheModel,
   ICategoryModel,
-  IClaimModel,
   IIngestTypeModel,
   ILicenseModel,
   ILookupModel,
@@ -18,7 +17,6 @@ import {
   useApiActions,
   useApiCache,
   useApiCategories,
-  useApiClaims,
   useApiIngestTypes,
   useApiLicenses,
   useApiLookups,
@@ -37,7 +35,7 @@ import { useLookupStore } from 'store/slices';
 import { ILookupState } from 'store/slices/lookup';
 import { getFromLocalStorage } from 'utils';
 
-import { useApiDispatcher } from '..';
+import { useAjaxWrapper } from '..';
 import { fetchIfNoneMatch, saveToLocalStorage } from './utils';
 
 interface ILookupController {
@@ -60,12 +58,11 @@ interface ILookupController {
 
 export const useLookup = (): [ILookupState, ILookupController] => {
   const [state, store] = useLookupStore();
-  const dispatch = useApiDispatcher();
+  const dispatch = useAjaxWrapper();
   const cache = useApiCache();
   const lookups = useApiLookups();
   const actions = useApiActions();
   const categories = useApiCategories();
-  const claims = useApiClaims();
   const products = useApiProducts();
   const sources = useApiSources();
   const licenses = useApiLicenses();
@@ -81,9 +78,9 @@ export const useLookup = (): [ILookupState, ILookupController] => {
   const controller = React.useMemo(
     () => ({
       getCache: async () => {
-        const result = await dispatch('cache', () => cache.getCache());
-        store.storeCache(result);
-        return result;
+        const response = await dispatch('cache', () => cache.getCache());
+        store.storeCache(response.data);
+        return response.data;
       },
       getLookups: async () => {
         return await fetchIfNoneMatch<ILookupModel>(
@@ -94,7 +91,6 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             if (!!results) {
               saveToLocalStorage('actions', results.actions, store.storeActions);
               saveToLocalStorage('categories', results.categories, store.storeCategories);
-              saveToLocalStorage('claims', results.claims, store.storeClaims);
               saveToLocalStorage('products', results.products, store.storeProducts);
               saveToLocalStorage('sources', results.sources, store.storeSources);
               saveToLocalStorage('ingest_types', results.ingestTypes, store.storeIngestTypes);
@@ -111,7 +107,6 @@ export const useLookup = (): [ILookupState, ILookupController] => {
               const lookups = {
                 actions: getFromLocalStorage<IActionModel[]>('actions', []),
                 categories: getFromLocalStorage<ICategoryModel[]>('categories', []),
-                claims: getFromLocalStorage<IClaimModel[]>('claims', []),
                 products: getFromLocalStorage<IProductModel[]>('products', []),
                 sources: getFromLocalStorage<ISourceModel[]>('sources', []),
                 ingestTypes: getFromLocalStorage<IIngestTypeModel[]>('ingest_types', []),
@@ -126,7 +121,6 @@ export const useLookup = (): [ILookupState, ILookupController] => {
               };
               store.storeActions(lookups.actions);
               store.storeCategories(lookups.categories);
-              store.storeClaims(lookups.claims);
               store.storeProducts(lookups.products);
               store.storeSources(lookups.sources);
               store.storeIngestTypes(lookups.ingestTypes);
@@ -142,6 +136,7 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             }
           },
           false,
+          'lookup',
         );
       },
       getActions: async () => {
@@ -154,6 +149,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeActions(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getCategories: async () => {
@@ -166,18 +163,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeCategories(values);
             return values;
           },
-        );
-      },
-      getClaims: async () => {
-        return await fetchIfNoneMatch<IClaimModel[]>(
-          'claims',
-          dispatch,
-          (etag) => claims.getClaims(etag),
-          (results) => {
-            const values = results ?? [];
-            store.storeClaims(values);
-            return values;
-          },
+          true,
+          'lookup',
         );
       },
       getProducts: async () => {
@@ -190,6 +177,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeProducts(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getSources: async () => {
@@ -202,6 +191,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeSources(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getLicenses: async () => {
@@ -214,6 +205,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeLicenses(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getIngestTypes: async () => {
@@ -226,6 +219,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeIngestTypes(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getRoles: async () => {
@@ -238,6 +233,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeRoles(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getSeries: async () => {
@@ -250,6 +247,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeSeries(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getSourceActions: async () => {
@@ -262,6 +261,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeSourceActions(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getMetrics: async () => {
@@ -274,6 +275,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeMetrics(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getTags: async () => {
@@ -286,6 +289,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeTags(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getTonePools: async () => {
@@ -298,6 +303,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeTonePools(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       getUsers: async () => {
@@ -310,6 +317,8 @@ export const useLookup = (): [ILookupState, ILookupController] => {
             store.storeUsers(values);
             return values;
           },
+          true,
+          'lookup',
         );
       },
       init: async () => {
@@ -321,7 +330,6 @@ export const useLookup = (): [ILookupState, ILookupController] => {
       actions,
       cache,
       categories,
-      claims,
       products,
       sources,
       dispatch,
