@@ -24,17 +24,20 @@ import {
   WorkOrderStatusName,
   WorkOrderTypeName,
 } from 'hooks';
-import { ContentStatusName, IContentModel, ValueType } from 'hooks/api-editor';
+import { ContentStatusName, IContentModel, useApiHubConnection, ValueType } from 'hooks/api-editor';
 import { useModal } from 'hooks/modal';
 import { useTabValidationToasts } from 'hooks/useTabValidationToasts';
 import React from 'react';
 import {
+  FaArrowRight,
   FaBars,
   FaCheckCircle,
   FaChevronLeft,
   FaChevronRight,
+  FaExclamationCircle,
   FaGripLines,
   FaSpinner,
+  FaTimesCircle,
 } from 'react-icons/fa';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -96,12 +99,15 @@ export const ContentForm: React.FC<IContentFormProps> = ({
   const productOptions = useProductOptions();
   const { combined, formType } = useCombinedView(initContentType);
   useTooltips();
+  const { getConnection } = useApiHubConnection();
 
   const [contentType, setContentType] = React.useState(formType ?? initContentType);
   const [size, setSize] = React.useState(1);
   const [active, setActive] = React.useState('properties');
   const [savePressed, setSavePressed] = React.useState(false);
   const [clipErrors, setClipErrors] = React.useState<string>('');
+  const [textDecorationStyle, setTextDecorationStyle] = React.useState('none');
+  const [cursorStyle, setCursorStyle] = React.useState('text');
   const [content, setContent] = React.useState<IContentForm>({
     ...defaultFormValues(contentType),
     id: parseInt(id ?? '0'),
@@ -119,6 +125,15 @@ export const ContentForm: React.FC<IContentFormProps> = ({
     (i) =>
       i.workType === WorkOrderTypeName.Transcription && i.status === WorkOrderStatusName.Completed,
   );
+  const isTranscribeFailed = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.Transcription && i.status === WorkOrderStatusName.Failed,
+  );
+  const isTranscribeCancelled = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.Transcription && i.status === WorkOrderStatusName.Cancelled,
+  );
+
   const isNLPing = content.workOrders.some(
     (i) =>
       i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
@@ -128,6 +143,16 @@ export const ContentForm: React.FC<IContentFormProps> = ({
     (i) =>
       i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
       i.status === WorkOrderStatusName.Completed,
+  );
+  const isNLPFailed = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
+      i.status === WorkOrderStatusName.Failed,
+  );
+  const isNLPCancelled = content.workOrders.some(
+    (i) =>
+      i.workType === WorkOrderTypeName.NaturalLanguageProcess &&
+      i.status === WorkOrderStatusName.Cancelled,
   );
 
   const determineActions = () => {
@@ -159,8 +184,23 @@ export const ContentForm: React.FC<IContentFormProps> = ({
   React.useEffect(() => {
     if (!!id && +id > 0) {
       fetchContent(+id);
+      const connection = getConnection();
+
+      connection
+        .start()
+        .then(() => {
+          connection.on('Update', (contentId) => {
+            if (contentId === +id) fetchContent(+id);
+          });
+        })
+        .catch((error) => console.error(error));
+
+      return function cleanUp() {
+        connection.off('Update');
+        connection.stop();
+      };
     }
-  }, [id, fetchContent]);
+  }, [id, fetchContent, getConnection]);
 
   const { setShowValidationToast } = useTabValidationToasts();
 
@@ -465,10 +505,36 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                       </Show>
                       <Show visible={isSnippetForm(contentType)}>
                         <FormikText
+                          style={{ textDecoration: textDecorationStyle, cursor: cursorStyle }}
                           name="sourceUrl"
                           label="Source URL"
                           tooltip="The URL to the original source story"
-                        />
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey && props.values.sourceUrl) {
+                              setTextDecorationStyle('underline');
+                              setCursorStyle('pointer');
+                            }
+                          }}
+                          onKeyUp={() => {
+                            if (textDecorationStyle !== 'none') setTextDecorationStyle('none');
+                            if (cursorStyle !== 'text') setCursorStyle('text');
+                          }}
+                          onClick={(e) => {
+                            if (e.ctrlKey && props.values.sourceUrl) {
+                              window.open(props.values.sourceUrl, '_blank', 'noreferrer');
+                            }
+                          }}
+                        >
+                          <Button
+                            disabled={!props.values.sourceUrl}
+                            variant={ButtonVariant.secondary}
+                            onClick={() =>
+                              window.open(props.values.sourceUrl, '_blank', 'noreferrer')
+                            }
+                          >
+                            <FaArrowRight />
+                          </Button>
+                        </FormikText>
                       </Show>
                     </Col>
                     <Col className="checkbox-column" flex="0.5 1 0%">
@@ -532,6 +598,12 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                               <Show visible={isTranscribed && !isTranscribing}>
                                 <FaCheckCircle className="spinner" />
                               </Show>
+                              <Show visible={isTranscribeFailed}>
+                                <FaExclamationCircle className="spinner" />
+                              </Show>
+                              <Show visible={isTranscribeCancelled}>
+                                <FaTimesCircle className="spinner" />
+                              </Show>
                             </Tab>
                             <Tab
                               label="Clips"
@@ -552,6 +624,12 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                               </Show>
                               <Show visible={isNLPed && !isNLPing}>
                                 <FaCheckCircle className="spinner" />
+                              </Show>
+                              <Show visible={isNLPFailed}>
+                                <FaExclamationCircle className="spinner" />
+                              </Show>
+                              <Show visible={isNLPCancelled}>
+                                <FaTimesCircle className="spinner" />
                               </Show>
                             </Tab>
                           </Show>
