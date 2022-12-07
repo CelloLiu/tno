@@ -1,11 +1,12 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Admin.Models.WorkOrder;
-using TNO.API.Keycloak;
 using TNO.API.Models;
+using TNO.API.SignalR;
 using TNO.DAL.Models;
 using TNO.DAL.Services;
 using TNO.Entities;
@@ -31,7 +32,6 @@ public class WorkOrderController : ControllerBase
 {
     #region Variables
     private readonly IWorkOrderService _workOrderService;
-    private readonly IKeycloakHelper _keycloakHelper;
     private readonly IHubContext<WorkOrderHub> _hub;
     #endregion
 
@@ -40,12 +40,10 @@ public class WorkOrderController : ControllerBase
     /// Creates a new instance of a WorkOrderController object, initializes with specified parameters.
     /// </summary>
     /// <param name="workOrderService"></param>
-    /// <param name="keycloakHelper"></param>
     /// <param name="hub"></param>
-    public WorkOrderController(IWorkOrderService workOrderService, IKeycloakHelper keycloakHelper, IHubContext<WorkOrderHub> hub)
+    public WorkOrderController(IWorkOrderService workOrderService, IHubContext<WorkOrderHub> hub)
     {
         _workOrderService = workOrderService;
-        _keycloakHelper = keycloakHelper;
         _hub = hub;
     }
     #endregion
@@ -56,7 +54,7 @@ public class WorkOrderController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<WorkOrderModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
     public IActionResult Find()
@@ -75,7 +73,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
@@ -93,13 +91,13 @@ public class WorkOrderController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
     public IActionResult Add(WorkOrderModel model)
     {
-        var result = _workOrderService.Add((WorkOrder)model);
+        var result = _workOrderService.AddAndSave((WorkOrder)model);
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new WorkOrderModel(result));
     }
 
@@ -110,7 +108,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
@@ -118,8 +116,8 @@ public class WorkOrderController : ControllerBase
     {
         var entity = _workOrderService.FindById(model.Id);
         if (entity == null) throw new InvalidOperationException("Work order not found");
-        var result = _workOrderService.Update(model.CopyTo(entity));
-        await _hub.Clients.All.SendAsync("Update", model.ContentId);
+        var result = _workOrderService.UpdateAndSave(model.CopyTo(entity));
+        await _hub.Clients.All.SendAsync("WorkOrder", model);
         return new JsonResult(new WorkOrderModel(result));
     }
 
@@ -130,13 +128,13 @@ public class WorkOrderController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
     public IActionResult Delete(WorkOrderModel model)
     {
-        _workOrderService.Delete((WorkOrder)model);
+        _workOrderService.DeleteAndSave((WorkOrder)model);
         return new JsonResult(model);
     }
     #endregion

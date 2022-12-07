@@ -1,5 +1,14 @@
 DO $$
-DECLARE DEFAULT_USER_ID UUID := '00000000-0000-0000-0000-000000000000';
+DECLARE dailyPrintId INT := (SELECT "id" FROM public.product WHERE Name = 'Daily Print'); -- product_id
+DECLARE dailyHiveId INT := (SELECT "id" FROM public.product WHERE Name = 'Daily Hive'); -- product_id
+DECLARE haShilthSaId INT := (SELECT "id" FROM public.product WHERE Name = 'Ha-Shilth-Sa'); -- product_id
+DECLARE bivId INT := (SELECT "id" FROM public.product WHERE Name = 'BiV'); -- product_id
+DECLARE castanetId INT := (SELECT "id" FROM public.product WHERE Name = 'Castanet'); -- product_id
+DECLARE infoNewsId INT := (SELECT "id" FROM public.product WHERE Name = 'iNFOnews'); -- product_id
+DECLARE iPoliticsId INT := (SELECT "id" FROM public.product WHERE Name = 'iPolitics'); -- product_id
+DECLARE narwhalId INT := (SELECT "id" FROM public.product WHERE Name = 'Narwhal'); -- product_id
+DECLARE theGeorgiaStraightId INT := (SELECT "id" FROM public.product WHERE Name = 'The Georgia Straight'); -- product_id
+
 BEGIN
 
 INSERT INTO public.source (
@@ -11,9 +20,9 @@ INSERT INTO public.source (
   , "auto_transcribe"
   , "disable_transcribe"
   , "license_id"
-  , "created_by_id"
+  , "product_id"
+  , "sort_order"
   , "created_by"
-  , "updated_by_id"
   , "updated_by"
 ) VALUES (
   'Daily Hive'
@@ -21,12 +30,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , dailyHiveId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CJCN'
@@ -34,12 +43,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Georgia Straight'
@@ -47,12 +56,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , theGeorgiaStraightId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Burnaby Now'
@@ -60,12 +69,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Chilliwack Times'
@@ -73,12 +82,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Tri-Cities Now'
@@ -86,25 +95,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
-  , ''
-), (
-  'The Record (New Westminster)'
-  , 'NWR'
-  , '' -- short_name
-  , '' -- description
-  , true -- is_enabled
-  , false
-  , false
-  , 6 -- license_id
-  , DEFAULT_USER_ID
-  , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Richmond News'
@@ -112,12 +108,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Castanet'
@@ -125,12 +121,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , castanetId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Coast Mountain News'
@@ -138,12 +134,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Salmon Arm Lakeshore News'
@@ -151,12 +147,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Indo-Canadian Voice'
@@ -164,12 +160,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Macleans'
@@ -177,12 +173,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'iPolitics'
@@ -190,12 +186,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , iPoliticsId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Cranbrook Townsman'
@@ -203,12 +199,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Delta Optimist'
@@ -216,12 +212,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Langley Advance Times'
@@ -229,12 +225,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Nelson Star'
@@ -242,12 +238,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Shore News'
@@ -255,12 +251,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Rossland News'
@@ -268,12 +264,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Surrey Now-Leader'
@@ -281,12 +277,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Royal City Record'
@@ -294,12 +290,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Announcement'
@@ -307,12 +303,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Media Availability'
@@ -320,12 +316,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Scrum'
@@ -333,12 +329,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Speech'
@@ -346,12 +342,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Cloverdale Reporter'
@@ -359,25 +355,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
-  , ''
-), (
-  'The Province'
-  , 'PROVINCE'
-  , '' -- short_name
-  , '' -- description
-  , true -- is_enabled
-  , false
-  , false
-  , 6 -- license_id
-  , DEFAULT_USER_ID
-  , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Creston Valley Advance'
@@ -385,12 +368,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Hook'
@@ -398,12 +381,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHKG'
@@ -411,12 +394,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CTV Online'
@@ -424,12 +407,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Canadian Centre for Policy Alternatives'
@@ -437,12 +420,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Cowichan Valley Citizen'
@@ -450,12 +433,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Haida Gwaii Observer'
@@ -463,12 +446,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Delta Reporter'
@@ -476,12 +459,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Tofino-Ucluelet Westerly News'
@@ -489,12 +472,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BNN'
@@ -502,12 +485,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Trail Daily Times'
@@ -515,38 +498,38 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Comox Valley Echo'
   , 'CVE'
   , '' -- short_name
   , '' -- description
-  , true -- is_enabled
-  , false
-  , false
+  , false -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Abbotsford Times'
   , 'AT'
   , '' -- short_name
   , '' -- description
-  , true -- is_enabled
-  , false
-  , false
+  , false -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Edmonton Journal'
@@ -554,12 +537,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Calgary Herald'
@@ -567,12 +550,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Oliver Chronicle'
@@ -580,12 +563,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'South Okanagan Times Chronicle'
@@ -593,12 +576,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Coast Reporter'
@@ -606,12 +589,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Dawson Creek Mirror'
@@ -619,12 +602,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Columbia Valley Pioneer'
@@ -632,12 +615,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Chemainus Valley Courier'
@@ -645,12 +628,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Opinion 250'
@@ -658,12 +641,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Fernie Free Press'
@@ -671,12 +654,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Keremeos Review'
@@ -684,12 +667,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CFTV'
@@ -697,12 +680,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CJVB'
@@ -710,12 +693,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Ming Pao News'
@@ -723,12 +706,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Sing Tao Daily'
@@ -736,12 +719,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver is Awesome'
@@ -749,12 +732,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'KRPI'
@@ -762,12 +745,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Calgary Herald (Print Edition)'
@@ -775,12 +758,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Business in Vancouver'
@@ -788,12 +771,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , bivId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHBC'
@@ -801,12 +784,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CFJC'
@@ -814,12 +797,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHNL'
@@ -827,12 +810,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CFNR'
@@ -840,12 +823,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKYE'
@@ -853,12 +836,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Bowen Island Undercurrent'
@@ -866,12 +849,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Burns Lake Lakes District News'
@@ -879,12 +862,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Chilliwack Progress'
@@ -892,12 +875,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kelowna Capital News'
@@ -905,12 +888,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Monday Magazine'
@@ -918,12 +901,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Island Gazette'
@@ -931,25 +914,25 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
-  'Sicamouse Eagle Valley News'
+  'Sicamous Eagle Valley News'
   , 'SEVN'
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Similkameen Spotlight'
@@ -957,12 +940,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Daily News (Prince Rupert)'
@@ -970,12 +953,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CTV'
@@ -983,12 +966,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Castlegar News'
@@ -996,12 +979,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Hope Standard'
@@ -1009,12 +992,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Island MidWeek'
@@ -1022,12 +1005,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Prince Rupert Northern View'
@@ -1035,12 +1018,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Alberni Valley News'
@@ -1048,12 +1031,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Valley Sentinel'
@@ -1061,12 +1044,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Trail-Rossland News'
@@ -1074,12 +1057,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver Courier'
@@ -1087,12 +1070,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kootenay Western Star'
@@ -1100,38 +1083,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
-  , ''
-), (
-  'Vancouver Sun'
-  , 'SUN'
-  , '' -- short_name
-  , '' -- description
-  , true -- is_enabled
-  , false
-  , false
-  , 6 -- license_id
-  , DEFAULT_USER_ID
-  , ''
-  , DEFAULT_USER_ID
-  , ''
-), (
-  'Times Colonist (Victoria)'
-  , 'TC'
-  , '' -- short_name
-  , '' -- description
-  , true -- is_enabled
-  , false
-  , false
-  , 6 -- license_id
-  , DEFAULT_USER_ID
-  , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CFAX'
@@ -1139,12 +1096,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'AV Archive'
@@ -1152,12 +1109,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Regional'
@@ -1165,12 +1122,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKNW'
@@ -1178,12 +1135,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHEK'
@@ -1191,12 +1148,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHAN'
@@ -1204,12 +1161,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBC'
@@ -1217,12 +1174,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CIVT'
@@ -1230,12 +1187,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Globe and Mail'
@@ -1243,25 +1200,25 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Today''s Edition'
   , 'TE'
   , '' -- short_name
   , '' -- description
-  , true -- is_enabled
-  , false
-  , false
+  , false -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CC News'
@@ -1269,12 +1226,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Daily News (Kamloops)'
@@ -1282,12 +1239,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKPG'
@@ -1295,12 +1252,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'SHAW'
@@ -1308,25 +1265,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
-  , ''
-), (
-  'National Post'
-  , 'POST'
-  , '' -- short_name
-  , '' -- description
-  , true -- is_enabled
-  , false
-  , false
-  , 6 -- license_id
-  , DEFAULT_USER_ID
-  , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CIVI'
@@ -1334,12 +1278,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Prince George Citizen'
@@ -1347,12 +1291,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Open Cabinet'
@@ -1360,12 +1304,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Daily Courier (Kelowna)'
@@ -1373,12 +1317,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKWX'
@@ -1386,12 +1330,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Press Theatre'
@@ -1399,12 +1343,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   '100 Mile House Free Press'
@@ -1412,12 +1356,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Abbotsford News'
@@ -1425,12 +1369,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Agassiz-Harrison Observer'
@@ -1438,12 +1382,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Aldergrove Star'
@@ -1451,12 +1395,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Arrow Lakes News'
@@ -1464,12 +1408,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Ashcroft Cache Creek Journal'
@@ -1477,12 +1421,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Barriere Star Journal'
@@ -1490,12 +1434,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Burnaby NewsLeader'
@@ -1503,12 +1447,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Campbell River Mirror'
@@ -1516,12 +1460,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Clearwater Times'
@@ -1529,12 +1473,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Comox Valley Record'
@@ -1542,12 +1486,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Cowichan News Leader Pictorial'
@@ -1555,12 +1499,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Esquimalt News'
@@ -1568,12 +1512,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Fort Saint James Courier'
@@ -1581,12 +1525,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Golden Star'
@@ -1594,12 +1538,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Goldstream News Gazette'
@@ -1607,12 +1551,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Houston Today'
@@ -1620,12 +1564,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Invermere Valley Echo'
@@ -1633,12 +1577,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kamloops This Week'
@@ -1646,12 +1590,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kitimat Northern Sentinel'
@@ -1659,12 +1603,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kootenay News Advertiser'
@@ -1672,12 +1616,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Ladysmith Chronicle'
@@ -1685,12 +1629,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Lake Cowichan Gazette'
@@ -1698,12 +1642,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Lakes District News'
@@ -1711,12 +1655,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Langley Times'
@@ -1724,12 +1668,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Maple Ridge-Pitt Meadows News'
@@ -1737,12 +1681,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Merritt Herald'
@@ -1750,12 +1694,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Mission City Record'
@@ -1763,12 +1707,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Nanaimo News Bulletin'
@@ -1776,12 +1720,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'New Westminster News Leader'
@@ -1789,12 +1733,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Island Weekender'
@@ -1802,12 +1746,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'North Shore Outlook'
@@ -1815,12 +1759,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Oak Bay News'
@@ -1828,12 +1772,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Parksville Qualicum Beach News'
@@ -1841,12 +1785,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Peace Arch News'
@@ -1854,12 +1798,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Peninsula News Review'
@@ -1867,12 +1811,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Penticton Western News'
@@ -1880,12 +1824,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Port Hardy North Island Gazette'
@@ -1893,12 +1837,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Prince George Free Press'
@@ -1906,12 +1850,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Princeton Similkameen Spotlight'
@@ -1919,12 +1863,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BC Government and Service Employees'' Union'
@@ -1932,25 +1876,25 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'New Westminster Record'
-  , 'NWREC'
+  , 'NWR'
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBYK'
@@ -1958,12 +1902,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CorpCal'
@@ -1971,12 +1915,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'iNFOnews'
@@ -1984,12 +1928,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , infoNewsId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Link'
@@ -1997,12 +1941,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Quesnel Cariboo Observer'
@@ -2010,12 +1954,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Revelstoke Review'
@@ -2023,12 +1967,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Richmond Review'
@@ -2036,12 +1980,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Saanich News'
@@ -2049,12 +1993,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Salmon Arm Observer'
@@ -2062,12 +2006,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Smithers Interior News'
@@ -2075,12 +2019,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Sooke News Mirror'
@@ -2088,12 +2032,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'South Delta Leader'
@@ -2101,12 +2045,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Summerland Review'
@@ -2114,12 +2058,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Surrey North Delta Leader'
@@ -2127,12 +2071,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Terrace Standard'
@@ -2140,12 +2084,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Chilliwack Progress'
@@ -2153,12 +2097,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Tri-City News'
@@ -2166,12 +2110,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vanderhoof Omineca Express'
@@ -2179,12 +2123,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vernon Morning Star'
@@ -2192,12 +2136,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Victoria News'
@@ -2205,12 +2149,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Victoria Weekend'
@@ -2218,12 +2162,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'WestEnder'
@@ -2231,12 +2175,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Williams Lake Tribune'
@@ -2244,12 +2188,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBC Online'
@@ -2257,12 +2201,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Daily News (Nanaimo)'
@@ -2270,12 +2214,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Lake Country Calendar'
@@ -2283,12 +2227,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Caledonia Courier'
@@ -2296,12 +2240,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKFR'
@@ -2309,12 +2253,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Nelson Daily News'
@@ -2322,12 +2266,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Canadian Press Wire'
@@ -2335,12 +2279,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Gulf Islands Driftwood'
@@ -2348,12 +2292,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CFIS'
@@ -2361,12 +2305,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBCV'
@@ -2374,12 +2318,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBTK'
@@ -2387,12 +2331,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBU'
@@ -2400,12 +2344,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBYG'
@@ -2413,12 +2357,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBUT'
@@ -2426,12 +2370,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The New York Times'
@@ -2439,12 +2383,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Daily Telegraph'
@@ -2452,12 +2396,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKNW Online'
@@ -2465,12 +2409,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Montreal Gazette'
@@ -2478,12 +2422,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Toronto Star'
@@ -2491,12 +2435,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKWX Online'
@@ -2504,12 +2448,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Seattle PI Online'
@@ -2517,12 +2461,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Georgia Straight Online'
@@ -2530,12 +2474,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver Province Online'
@@ -2543,12 +2487,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Globe and Mail Online'
@@ -2556,12 +2500,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Victoria Buzz'
@@ -2569,12 +2513,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'KXLY'
@@ -2582,12 +2526,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Global News: BC 1'
@@ -2595,12 +2539,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Boundary Creek Times'
@@ -2608,12 +2552,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kimberley Bulletin'
@@ -2621,12 +2565,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Peachland View'
@@ -2634,12 +2578,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BC Conservative Party'
@@ -2647,12 +2591,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'News Kamloops'
@@ -2660,12 +2604,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Sierra Club of BC'
@@ -2673,12 +2617,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Webcast'
@@ -2686,12 +2630,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Squamish Chief'
@@ -2699,12 +2643,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver Sun Online'
@@ -2712,12 +2656,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'HuffPostBC'
@@ -2725,12 +2669,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CJVB Online'
@@ -2738,12 +2682,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKSP'
@@ -2751,12 +2695,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Orca'
@@ -2764,12 +2708,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKVU'
@@ -2777,12 +2721,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBX'
@@ -2790,12 +2734,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Kelowna Westside Weekly'
@@ -2803,12 +2747,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 4 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKSP Sameer Kaushal'
@@ -2816,12 +2760,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Alaska Highway News'
@@ -2829,12 +2773,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Northerner'
@@ -2842,12 +2786,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKFU'
@@ -2855,12 +2799,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver 24 hrs'
@@ -2868,12 +2812,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'StarMetro'
@@ -2881,12 +2825,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Blacks Newsgroup'
@@ -2894,12 +2838,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Meltwater'
@@ -2907,12 +2851,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 6 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Union of BC Indian Chiefs'
@@ -2920,12 +2864,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'TVS - Talentvision'
@@ -2933,12 +2877,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CityCaucus.com'
@@ -2946,12 +2890,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Hospital Employees'' Union'
@@ -2959,12 +2903,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BC Health Coalition'
@@ -2972,12 +2916,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHMB'
@@ -2985,12 +2929,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CJRJ'
@@ -2998,12 +2942,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'KVRI'
@@ -3011,12 +2955,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'British Columbia Nurses'' Union'
@@ -3024,12 +2968,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'PTC'
@@ -3037,12 +2981,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Vancouver Island Free Daily'
@@ -3050,12 +2994,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'The Tyee'
@@ -3063,12 +3007,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 5 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Canadian Union of Public Employees'
@@ -3076,12 +3020,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'APTN'
@@ -3089,12 +3033,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Social Media'
@@ -3102,12 +3046,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CKPG Online'
@@ -3115,12 +3059,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CHNM'
@@ -3128,12 +3072,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 2 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'British Columbia Federation of Labour'
@@ -3141,12 +3085,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Grand Forks Gazette'
@@ -3154,12 +3098,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BC Teachers'' Federation'
@@ -3167,12 +3111,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Public Eye Online'
@@ -3180,12 +3124,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'BC Local News'
@@ -3193,12 +3137,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 1 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBCIndigNews'
@@ -3206,12 +3150,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'CBCBCNews'
@@ -3219,12 +3163,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Narwhal'
@@ -3232,12 +3176,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 7 -- license_id
-  , DEFAULT_USER_ID
+  , narwhalId -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
   'Infotel'
@@ -3245,12 +3189,12 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
   , ''
 ), (
     'KNKX' -- name
@@ -3258,12 +3202,155 @@ INSERT INTO public.source (
   , '' -- short_name
   , '' -- description
   , true -- is_enabled
-  , false
-  , false
+  , false -- auto_transcribe
+  , false -- disable_transcribe
   , 3 -- license_id
-  , DEFAULT_USER_ID
+  , null -- product_id
+  , 0 -- sort_order
   , ''
-  , DEFAULT_USER_ID
+  , ''
+), (
+  'Times Colonist (Victoria)' -- name
+  , 'TC' -- code
+  , '' -- short_name
+  , '' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 3 -- license_id
+  , dailyPrintId -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Vancouver Sun' -- name
+  , 'SUN' -- code
+  , '' -- short_name
+  , '' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 3 -- license_id
+  , dailyPrintId -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'National Post' -- name
+  , 'POST' -- code
+  , '' -- short_name
+  , '' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 3 -- license_id
+  , dailyPrintId -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'The Province' -- name
+  , 'PROVINCE' -- code
+  , '' -- short_name
+  , '' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 3 -- license_id
+  , dailyPrintId -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Ha-Shilth-Sa' -- name
+  , 'HaShilthSa' -- code
+  , '' -- short_name
+  , '' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 3 -- license_id
+  , haShilthSaId -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Capital Daily' -- name
+  , 'CAPDAILY' -- code
+  , '' -- short_name
+  , 'HTML https://www.capitaldaily.ca/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'The Westshore' -- name
+  , 'WESTSHORE' -- code
+  , '' -- short_name
+  , 'HTML https://www.thewestshore.ca/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Victoria Tech Journal' -- name
+  , 'VTJ' -- code
+  , '' -- short_name
+  , 'HTML https://www.victechjournal.com/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Burnaby Beacon' -- name
+  , 'BBEACON' -- code
+  , '' -- short_name
+  , 'HTML https://burnabybeacon.com/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'Fraser Valley Current' -- name
+  , 'FVC' -- code
+  , '' -- short_name
+  , 'HTML https://fvcurrent.com/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
+  , ''
+), (
+  'New West Anchor' -- name
+  , 'NWA' -- code
+  , '' -- short_name
+  , 'HTML https://www.newwestanchor.com/' -- description
+  , true -- is_enabled
+  , false -- auto_transcribe
+  , false -- disable_transcribe
+  , 1 -- license_id
+  , null -- product_id
+  , 0 -- sort_order
+  , ''
   , ''
 );
 

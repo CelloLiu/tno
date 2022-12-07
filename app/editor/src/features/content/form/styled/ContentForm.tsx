@@ -65,4 +65,22 @@ export const ContentForm = styled.div`
   .tab .spinner {
     margin-left: 0.5em;
   }
+
+  .submit-buttons {
+    padding-top: 4.5em;
+  }
+
+  .content-status {
+    flex: 1 1 auto;
+    margin: 0 1em 0 1em;
+    padding: 0 1em 0 1em;
+    align-content: center;
+    justify-content: center;
+    background-color: ${(props) => props.theme.css.tableColor};
+    border-radius: 0.5em;
+
+    & > span {
+      color: ${(props) => props.theme.css.primaryColor};
+    }
+  }
 `;

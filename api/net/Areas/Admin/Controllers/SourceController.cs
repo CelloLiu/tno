@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -47,7 +48,7 @@ public class SourceController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<SourceModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult FindAll()
@@ -60,7 +61,7 @@ public class SourceController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("find")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<SourceModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult Find()
@@ -78,7 +79,7 @@ public class SourceController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SourceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Source" })]
@@ -96,13 +97,13 @@ public class SourceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SourceModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult Add(SourceModel model)
     {
-        var result = _service.Add(model.ToEntity());
+        var result = _service.AddAndSave(model.ToEntity());
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new SourceModel(result));
     }
 
@@ -112,13 +113,13 @@ public class SourceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SourceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult Update(SourceModel model)
     {
-        var result = _service.Update(model.ToEntity(), true);
+        var result = _service.UpdateAndSave(model.ToEntity(), true);
         return new JsonResult(new SourceModel(result));
     }
 
@@ -128,13 +129,13 @@ public class SourceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SourceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult Delete(SourceModel model)
     {
-        _service.Delete(model.ToEntity());
+        _service.DeleteAndSave(model.ToEntity());
         return new JsonResult(model);
     }
     #endregion

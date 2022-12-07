@@ -25,10 +25,6 @@ namespace TNO.Services.FileMonitor;
 public class FileMonitorAction : IngestAction<FileMonitorOptions>
 {
     #region Properties
-    /// <summary>
-    /// get - The logger for the command action.
-    /// </summary>
-    public ILogger Logger { get; private set; }
     #endregion
 
     #region Constructors
@@ -38,9 +34,8 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <param name="api"></param>
     /// <param name="options"></param>
     /// <param name="logger"></param>
-    public FileMonitorAction(IApiService api, IOptions<FileMonitorOptions> options, ILogger<FileMonitorAction> logger) : base(api, options)
+    public FileMonitorAction(IApiService api, IOptions<FileMonitorOptions> options, ILogger<FileMonitorAction> logger) : base(api, options, logger)
     {
-        this.Logger = logger;
     }
     #endregion
 
@@ -73,13 +68,16 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
         format = !String.IsNullOrEmpty(format) ? format : "xml";
 
         this.Logger.LogDebug("Parsing files for '{name}'", manager.Ingest.Name);
-        var articles = format.ToLower() switch
+        switch (format.ToLower())
         {
-            "xml" => GetXmlArticles(dir, manager, sources),
-            "fms" => GetFmsArticles(dir, manager, sources),
-            _ => throw new InvalidOperationException($"Invalid import file format defined for '{manager.Ingest.Name}'"),
+            case "xml":
+                await GetXmlArticlesAsync(dir, manager, sources);
+                break;
+            case "fms":
+                await GetFmsArticlesAsync(dir, manager, sources);
+                break;
+            default: throw new InvalidOperationException($"Invalid import file format defined for '{manager.Ingest.Name}'");
         };
-        await ImportArticlesAsync(manager, articles);
     }
 
     /// <summary>
@@ -229,54 +227,37 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// Informs API of content reference status.
     /// </summary>
     /// <param name="manager"></param>
-    /// <param name="articles"></param>
+    /// <param name="content"></param>
     /// <returns></returns>
-    private async Task ImportArticlesAsync(IIngestServiceActionManager manager, List<SourceContent> articles)
+    private async Task ImportArticleAsync(IIngestServiceActionManager manager, SourceContent content)
     {
-        foreach (var item in articles)
+        try
         {
-            try
+            // Fetch content reference.
+            var reference = await this.FindContentReferenceAsync(manager.Ingest.Source?.Code, content.Uid);
+            if (reference == null)
             {
-                // Fetch content reference.
-                var reference = await this.Api.FindContentReferenceAsync(manager.Ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{manager.Ingest.Name}' is missing source code."), item.Uid);
-                var sendMessage = true;
-
-                if (reference == null)
-                {
-                    reference = await AddContentReferenceAsync(manager.Ingest, item);
-                }
-                else if ((reference.Status == (int)WorkflowStatus.InProgress && reference.UpdatedOn?.AddHours(1) < DateTime.UtcNow) ||
-                        (reference.Status != (int)WorkflowStatus.InProgress && reference.UpdatedOn != item.PublishedOn))
-                {
-                    // TODO: verify a hash of the content to ensure it has changed. This may be slow
-                    // however, but would ensure the content was physically updated.
-
-                    // If another process has it in progress only attempt to do an import if it's
-                    // more than an hour old. Assumption is that it is stuck.
-                    reference = await UpdateContentReferenceAsync(reference, item);
-                    sendMessage = false;
-                }
-                else sendMessage = false;
-
-                // Only send a message to Kafka if this process added/updated the content reference.
-                if (sendMessage && reference != null)
-                {
-                    // Send item to Kafka.
-                    var result = await this.Api.SendMessageAsync(manager.Ingest.Topic, item);
-
-                    // Update content reference with Kafka response.
-                    await UpdateContentReferenceAsync(reference, item);
-                }
+                reference = await AddContentReferenceAsync(manager.Ingest, content);
             }
-            catch (Exception ex)
+            else if ((reference.Status == (int)WorkflowStatus.InProgress && reference.UpdatedOn?.AddMinutes(5) < DateTime.UtcNow) ||
+                    (reference.Status != (int)WorkflowStatus.InProgress && reference.PublishedOn != content.PublishedOn))
             {
-                // Reached limit return to ingest manager.
-                if (manager.Ingest.FailedAttempts + 1 >= manager.Ingest.RetryLimit)
-                    throw;
-
-                this.Logger.LogError(ex, "Failed to ingest item for ingest '{name}'", manager.Ingest.Name);
-                await manager.RecordFailureAsync();
+                // If another process has it in progress only attempt to do an import if it's
+                // more than an hour old. Assumption is that it is stuck.
+                reference.PublishedOn = content.PublishedOn;
             }
+            else reference = null;
+
+            await this.ContentReceivedAsync(manager, reference, content);
+        }
+        catch (Exception ex)
+        {
+            // Reached limit return to ingest manager.
+            if (manager.Ingest.FailedAttempts + 1 >= manager.Ingest.RetryLimit)
+                throw;
+
+            this.Logger.LogError(ex, "Failed to ingest item for ingest '{name}'", manager.Ingest.Name);
+            await manager.RecordFailureAsync();
         }
     }
 
@@ -284,35 +265,22 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// Send AJAX request to api to add content reference.
     /// </summary>
     /// <param name="ingest"></param>
-    /// <param name="item"></param>
+    /// <param name="content"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private async Task<ContentReferenceModel?> AddContentReferenceAsync(IngestModel ingest, SourceContent item)
+    private async Task<ContentReferenceModel?> AddContentReferenceAsync(IngestModel ingest, SourceContent content)
     {
         // Add a content reference record.
         var model = new ContentReferenceModel()
         {
             Source = ingest.Source?.Code ?? throw new InvalidOperationException($"Ingest '{ingest.Name}' is missing source code."),
-            Uid = item.Uid,
+            Uid = content.Uid,
             Topic = ingest.Topic,
             Status = (int)WorkflowStatus.InProgress,
-            PublishedOn = item.PublishedOn
+            PublishedOn = content.PublishedOn
         };
 
         return await this.Api.AddContentReferenceAsync(model);
-    }
-
-    /// <summary>
-    /// Send AJAX request to api to update content reference.
-    /// </summary>
-    /// <param name="reference"></param>
-    /// <param name="item"></param>
-    /// <returns></returns>
-    private async Task<ContentReferenceModel?> UpdateContentReferenceAsync(ContentReferenceModel reference, SourceContent item)
-    {
-        reference.PublishedOn = item.PublishedOn != DateTime.MinValue ? item.PublishedOn : null;
-        //reference.SourceUpdateOn = item.LastUpdatedTime != DateTime.MinValue ? item.LastUpdatedTime.UtcDateTime : null;
-        return await this.Api.UpdateContentReferenceAsync(reference);
     }
 
     /// <summary>
@@ -430,55 +398,57 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <param name="sources"></param>
     /// <returns></returns>
     /// <exception cref="FormatException"></exception>
-    private List<SourceContent> GetXmlArticles(string dir, IIngestServiceActionManager manager, Dictionary<string, string> sources)
+    private async Task GetXmlArticlesAsync(string dir, IIngestServiceActionManager manager, Dictionary<string, string> sources)
     {
-        var articles = new List<SourceContent>();
         var ingest = manager.Ingest;
-        var xmlDocs = GetFileContentList<XmlDocument>(dir, ingest);
+        var fileList = Directory.GetFiles(dir);
 
-        foreach (KeyValuePair<string, XmlDocument> document in xmlDocs)
+        foreach (string path in fileList)
         {
             try
             {
                 // Extract a list of stories from the current document.
-                XmlNodeList elementList = document.Value.GetElementsByTagName(ingest.GetConfigurationValue(Fields.Item));
-
-                // Iterate over the list of stories and add a new item to the articles list for each story.
-                foreach (XmlElement story in elementList)
+                XmlDocument? document = GetValidXmlDocument(path, ingest);
+                if (document != null)
                 {
-                    var paperName = GetXmlData(story, Fields.PaperName, ingest);
-                    var code = GetItemSourceCode(ingest, paperName, sources);
+                    XmlNodeList elementList = document.GetElementsByTagName(ingest.GetConfigurationValue(Fields.Item));
 
-                    if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
+                    // Iterate over the list of stories and add a new item to the articles list for each story.
+                    foreach (XmlElement story in elementList)
                     {
-                        var item = new SourceContent(
-                            this.Options.DataLocation,
-                            GetItemSourceCode(ingest, paperName, sources),
-                            ContentType.PrintContent,
-                            ingest.ProductId,
-                            GetXmlData(story, Fields.Id, ingest),
-                            GetXmlData(story, Fields.Headline, ingest),
-                            GetXmlData(story, Fields.Summary, ingest),
-                            GetXmlData(story, Fields.Story, ingest),
-                            GetPublishedOn(GetXmlData(story, Fields.Date, ingest), ingest))
-                        {
-                            Page = GetXmlData(story, Fields.Page, ingest),
-                            Section = GetXmlData(story, Fields.Section, ingest),
-                            Language = ingest.GetConfigurationValue("language"),
-                            Authors = GetAuthorList(GetXmlData(story, Fields.Author, ingest)),
-                        };
+                        var paperName = GetXmlData(story, Fields.PaperName, ingest);
+                        var code = GetItemSourceCode(ingest, paperName, sources);
 
-                        articles.Add(item);
+                        if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
+                        {
+                            var productId = await GetProductIdAsync(ingest, code, sources);
+                            var item = new SourceContent(
+                                this.Options.DataLocation,
+                                GetItemSourceCode(ingest, paperName, sources),
+                                ContentType.PrintContent,
+                                productId,
+                                GetXmlData(story, Fields.Id, ingest),
+                                GetXmlData(story, Fields.Headline, ingest),
+                                GetXmlData(story, Fields.Summary, ingest),
+                                GetXmlData(story, Fields.Story, ingest),
+                                GetPublishedOn(GetXmlData(story, Fields.Date, ingest), ingest))
+                            {
+                                Page = GetXmlData(story, Fields.Page, ingest),
+                                Section = GetXmlData(story, Fields.Section, ingest),
+                                Language = ingest.GetConfigurationValue("language"),
+                                Authors = GetAuthorList(GetXmlData(story, Fields.Author, ingest)),
+                            };
+
+                            await ImportArticleAsync(manager, item);
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new FormatException($"File contents for ingest '{ingest.Name}' is invalid.", ex);
+                throw new FormatException($"File contents at '{path}' is invalid.", ex);
             }
         }
-
-        return articles;
     }
 
     /// <summary>
@@ -492,56 +462,60 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <param name="sources"></param>
     /// <returns></returns>
     /// <exception cref="FormatException"></exception>
-    private List<SourceContent> GetFmsArticles(string dir, IIngestServiceActionManager manager, Dictionary<string, string> sources)
+    private async Task GetFmsArticlesAsync(string dir, IIngestServiceActionManager manager, Dictionary<string, string> sources)
     {
-        var articles = new List<SourceContent>();
         var ingest = manager.Ingest;
-        var fmsDocs = GetFileContentList<string>(dir, ingest);
+        var fileList = Directory.GetFiles(dir);
 
         // Iterate over the files in the list and process the stories they contain.
-        foreach (KeyValuePair<string, string> document in fmsDocs)
+        foreach (string path in fileList)
         {
             try
             {
                 // Extract a list of stories from the current document. Replace the story delimiter with a string that
                 // facilitates the extraction of stories using regular expressions in single-line mode.
-                var doc = document.Value.Replace(ingest.GetConfigurationValue(Fields.Item), Fields.FmsStoryDelim) + Fields.FmsEofFlag;
-                var matches = Regex.Matches(doc, "<story>(.+?)</story>", RegexOptions.Singleline);
-                var code = "";
-
-                // Iterate over the list of stories and add a new item to the articles list for each story.
-                foreach (Match story in matches.Cast<Match>())
+                string? document = ReadFileContents(path, ingest);
+                if (document != null)
                 {
-                    var preFiltered = story.Groups[1].Value;
+                    var doc = document.Replace(ingest.GetConfigurationValue(Fields.Item), Fields.FmsStoryDelim) + Fields.FmsEofFlag;
+                    var matches = Regex.Matches(doc, "<story>(.+?)</story>", RegexOptions.Singleline);
+                    var code = "";
 
-                    // Single line mode prevents matching on "\n\n", so replace this with a meaningful field delimiter.
-                    var filtered = preFiltered.Replace("\n\n", Fields.FmsFieldDelim);
-
-                    var papername = GetFmsData(filtered, Fields.PaperName, ingest);
-                    code = string.IsNullOrEmpty(code) ? GetItemSourceCode(ingest, papername, sources) : code;
-
-                    if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
+                    // Iterate over the list of stories and add a new item to the articles list for each story.
+                    foreach (Match story in matches.Cast<Match>())
                     {
-                        var item = new SourceContent(
-                            this.Options.DataLocation,
-                            code,
-                            ContentType.PrintContent,
-                            ingest.ProductId,
-                            GetFmsData(filtered, Fields.Id, ingest),
-                            GetFmsData(filtered, Fields.Headline, ingest),
-                            GetFmsData(filtered, Fields.Summary, ingest),
-                            GetFmsData(preFiltered + "<break>", Fields.Story, ingest),
-                            GetPublishedOn(GetFmsData(filtered, Fields.Date, ingest), ingest))
+                        var preFiltered = story.Groups[1].Value;
+
+                        // Single line mode prevents matching on "\n\n", so replace this with a meaningful field delimiter.
+                        var filtered = preFiltered.Replace("\n\n", Fields.FmsFieldDelim);
+
+                        var papername = GetFmsData(filtered, Fields.PaperName, ingest);
+                        code = string.IsNullOrEmpty(code) ? GetItemSourceCode(ingest, papername, sources) : code;
+
+                        if (!string.IsNullOrEmpty(code)) // This is a valid newspaper source
                         {
-                            Page = GetFmsData(filtered, Fields.Page, ingest),
-                            Section = GetFmsData(filtered, Fields.Section, ingest),
-                            Language = ingest.GetConfigurationValue("language"),
+                            var productId = await GetProductIdAsync(ingest, code, sources);
+                            var item = new SourceContent(
+                                this.Options.DataLocation,
+                                code,
+                                ContentType.PrintContent,
+                                productId,
+                                GetFmsData(filtered, Fields.Id, ingest),
+                                GetFmsData(filtered, Fields.Headline, ingest),
+                                GetFmsData(filtered, Fields.Summary, ingest),
+                                GetFmsData(preFiltered + "<break>", Fields.Story, ingest),
+                                GetPublishedOn(GetFmsData(filtered, Fields.Date, ingest), ingest))
+                            {
+                                Page = GetFmsData(filtered, Fields.Page, ingest),
+                                Section = GetFmsData(filtered, Fields.Section, ingest),
+                                Language = ingest.GetConfigurationValue("language"),
 
-                            Tags = GetTagList(filtered, ingest),
-                            Authors = GetAuthorList(GetFmsData(filtered, Fields.Author, ingest))
-                        };
+                                Tags = GetTagList(filtered, ingest),
+                                Authors = GetAuthorList(GetFmsData(filtered, Fields.Author, ingest))
+                            };
 
-                        articles.Add(item);
+                            await ImportArticleAsync(manager, item);
+                        }
                     }
                 }
             }
@@ -550,8 +524,35 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
                 throw new FormatException($"File contents for ingest '{ingest.Name}' is invalid.", ex);
             }
         }
+    }
 
-        return articles;
+    /// <summary>
+    /// Get the "productId" value for the current source. If the ingest is selfPublished (relates to only one publication) the sources
+    /// dictionary will be empty and the productId for the ingest will be returned. If sources is not empty the source for the "code"
+    /// parameter will be retrieved and if the source's override productId is not null it will be returned.
+    /// </summary>
+    /// <param name="ingest"></param>
+    /// <param name="code"></param>
+    /// <param name="sources"></param>
+    /// <returns></returns>
+    private async Task<int> GetProductIdAsync(IngestModel ingest, string code, Dictionary<string, string> sources)
+    {
+        if (sources.Count == 0) // Self published
+        {
+            return ingest.ProductId;
+        }
+        else
+        {
+            var source = await this.Api.GetSourceForCodeAsync(code);
+            if (source == null)
+            {
+                return ingest.ProductId;
+            }
+            else
+            {
+                return source.ProductId ?? ingest.ProductId;
+            }
+        }
     }
 
     /// <summary>
@@ -618,40 +619,6 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
 
         return sources;
     }
-
-    /// <summary>
-    /// Get a list of XML files from the import directory and return a Dictionary of XmlDocument objects (one per file) keyed by
-    /// the file path of each file. Calls GetValidXmlDocument() to apply fixes where the publisher provides invalid XML content.
-    /// </summary>
-    /// <param name="pathToFiles"></param>
-    /// <param name="ingest"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
-    private Dictionary<string, T> GetFileContentList<T>(string pathToFiles, IngestModel ingest)
-        where T : class
-    {
-        var fileContentList = new Dictionary<string, T>();
-
-        if (!Directory.Exists(pathToFiles)) return fileContentList;
-
-        var fileList = Directory.GetFiles(pathToFiles);
-
-        foreach (string filePath in fileList)
-        {
-            T doc = typeof(T).FullName switch
-            {
-                "System.Xml.XmlDocument" => GetValidXmlDocument(filePath, ingest) as T ?? throw new InvalidOperationException("Unexpected null return value."),
-                "System.String" => ReadFileContents(filePath, ingest) as T ?? throw new InvalidOperationException("Unexpected null return value."),
-                _ => throw new ArgumentException($"Invalid type argument in GetFileContentList: {typeof(T).FullName}")
-            };
-
-            // TODO: This is a bad design we're putting everything into memory at once.  It should be performing work on one file at a time.
-            fileContentList.Add(filePath, doc);
-        }
-
-        return fileContentList;
-    }
     #endregion
 
     #region Support Methods
@@ -667,36 +634,42 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <param name="filePath"></param>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    private XmlDocument GetValidXmlDocument(string filePath, IngestModel ingest)
+    private XmlDocument? GetValidXmlDocument(string filePath, IngestModel ingest)
     {
-        var xmlDoc = new XmlDocument();
         var xmlTxt = ReadFileContents(filePath, ingest);
-
-        // BCNG files have multiple top-level objects which need to be wrapped in a single pair of tags.
-        var addParent = ingest.GetConfigurationValue<bool>(Fields.AddParent);
-        if (addParent)
-        {
-            xmlTxt = FixParentTag(xmlTxt);
-        }
-
-        // BCNG stories contain invalid XHTML content which must be escaped to parse the document.
-        var escapeContent = ingest.GetConfigurationValue<bool>(Fields.EscapeContent);
-        if (escapeContent)
-        {
-            xmlTxt = StoryToCdata(xmlTxt, ingest);
-        }
 
         try
         {
-            xmlDoc.LoadXml(xmlTxt);
+            if (xmlTxt != null)
+            {
+                // BCNG files have multiple top-level objects which need to be wrapped in a single pair of tags.
+                var addParent = ingest.GetConfigurationValue<bool>(Fields.AddParent);
+                if (addParent)
+                {
+                    xmlTxt = FixParentTag(xmlTxt);
+                }
+
+                // BCNG stories contain invalid XHTML content which must be escaped to parse the document.
+                var escapeContent = ingest.GetConfigurationValue<bool>(Fields.EscapeContent);
+                if (escapeContent)
+                {
+                    xmlTxt = StoryToCdata(xmlTxt, ingest);
+                }
+
+                var xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(xmlTxt);
+                return xmlDoc;
+            }
+            else
+            {
+                return null;
+            }
         }
         catch (System.Xml.XmlException e)
         {
             this.Logger.LogError(e, "Failed to ingest item from file '{path}'", filePath);
             throw e;
         }
-
-        return xmlDoc;
     }
 
     /// <summary>
@@ -705,14 +678,22 @@ public class FileMonitorAction : IngestAction<FileMonitorOptions>
     /// <param name="filePath"></param>
     /// <param name="ingest"></param>
     /// <returns></returns>
-    private string ReadFileContents(string filePath, IngestModel ingest)
+    private string? ReadFileContents(string filePath, IngestModel ingest)
     {
         this.Logger.LogDebug("Reading file '{file}' for ingest '{name}'", filePath, ingest.Name);
         var sr = new System.IO.StreamReader(filePath);
         var contents = sr.ReadToEnd();
         sr.Close();
 
-        return contents;
+        if (String.IsNullOrWhiteSpace(contents))
+        {
+            this.Logger.LogWarning("Missing file contents at '{path}'", filePath);
+            return null;
+        }
+        else
+        {
+            return contents;
+        }
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -7,6 +8,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Editor.Models.WorkOrder;
 using TNO.API.Config;
 using TNO.API.Models;
+using TNO.API.SignalR;
 using TNO.Core.Exceptions;
 using TNO.Core.Extensions;
 using TNO.DAL.Models;
@@ -79,7 +81,7 @@ public class WorkOrderController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<WorkOrderModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
     public IActionResult Find()
@@ -98,7 +100,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="contentId"></param>
     /// <returns></returns>
     [HttpPut("transcribe/{contentId}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
@@ -119,15 +121,15 @@ public class WorkOrderController : ControllerBase
 
         var username = User.GetUsername() ?? throw new NotAuthorizedException("Username is missing");
         var user = _userService.FindByUsername(username) ?? throw new NotAuthorizedException("User does not exist");
-        var workOrder = _workOrderService.Add(new WorkOrder(WorkOrderType.Transcription, content, user, ""));
+        var workOrder = _workOrderService.AddAndSave(new WorkOrder(WorkOrderType.Transcription, content, user, ""));
 
         var result = await _kafkaMessenger.SendMessageAsync(_kafkaOptions.TranscriptionTopic, new TranscriptRequest(workOrder, username));
         if (result == null)
         {
             workOrder.Status = WorkOrderStatus.Failed;
             workOrder.Note = "Transcript request to Kafka failed";
-            _workOrderService.Update(workOrder);
-            await _hub.Clients.All.SendAsync("Update", workOrder.ContentId);
+            _workOrderService.UpdateAndSave(workOrder);
+            await _hub.Clients.All.SendAsync("WorkOrder", workOrder);
             throw new BadRequestException("Transcription request failed");
         }
         return new JsonResult(new WorkOrderModel(workOrder));
@@ -140,7 +142,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="contentId"></param>
     /// <returns></returns>
     [HttpPut("nlp/{contentId}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
@@ -161,15 +163,15 @@ public class WorkOrderController : ControllerBase
 
         var username = User.GetUsername() ?? throw new NotAuthorizedException("Username is missing");
         var user = _userService.FindByUsername(username) ?? throw new NotAuthorizedException("User does not exist");
-        var workOrder = _workOrderService.Add(new WorkOrder(WorkOrderType.NaturalLanguageProcess, content, user, ""));
+        var workOrder = _workOrderService.AddAndSave(new WorkOrder(WorkOrderType.NaturalLanguageProcess, content, user, ""));
 
         var result = await _kafkaMessenger.SendMessageAsync(_kafkaOptions.NLPTopic, new NLPRequest(workOrder));
         if (result == null)
         {
             workOrder.Status = WorkOrderStatus.Failed;
             workOrder.Note = "NLP request to Kafka failed";
-            _workOrderService.Update(workOrder);
-            await _hub.Clients.All.SendAsync("Update", workOrder.ContentId);
+            _workOrderService.UpdateAndSave(workOrder);
+            await _hub.Clients.All.SendAsync("WorkOrder", workOrder);
             throw new BadRequestException("Natural Language Processing request failed");
         }
         return new JsonResult(new WorkOrderModel(workOrder));

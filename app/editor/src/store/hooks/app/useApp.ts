@@ -1,4 +1,10 @@
-import { IUserInfoModel, useApiAuth } from 'hooks/api-editor';
+import {
+  IRegisterModel,
+  IUserInfoModel,
+  IUserModel,
+  useApiAuth,
+  UserStatusName,
+} from 'hooks/api-editor';
 import React from 'react';
 import { IAppState, IErrorModel, useAppStore } from 'store/slices';
 import { useKeycloakWrapper } from 'tno-core';
@@ -14,20 +20,25 @@ let userInfo: IUserInfoModel = {
   key: '',
   username: '',
   email: '',
+  status: UserStatusName.Requested,
   displayName: '',
-  groups: [],
+  isEnabled: false,
   roles: [],
 };
+
+let initialized = false;
 
 interface IAppController {
   /**
    * Make an request to the API for user information.
    */
   getUserInfo: (refresh?: boolean) => Promise<IUserInfoModel>;
+  requestCode: (model: IRegisterModel) => Promise<IRegisterModel>;
+  requestApproval: (model: IUserModel) => Promise<IUserModel>;
   /**
-   * Check if the user is ready.
+   * Add new error to state.
    */
-  isUserReady: () => boolean;
+  addError: (error: IErrorModel) => void;
   /**
    * Remove specified error from state.
    */
@@ -37,9 +48,13 @@ interface IAppController {
    */
   clearErrors: () => void;
   /**
-   * Initialize application lookups and settings.
+   * Whether the application has been initialized.
    */
-  init: () => Promise<void>;
+  initialized: boolean;
+  /**
+   * Whether the application has been initialized.
+   */
+  authenticated: boolean;
 }
 
 /**
@@ -53,6 +68,16 @@ export const useApp = (): [IAppState, IAppController] => {
   const dispatch = useAjaxWrapper();
   const api = useApiAuth();
 
+  const hasClaim = keycloak.hasClaim();
+
+  React.useEffect(() => {
+    // Initialize lookup values the first time the app loads.
+    if (!initialized && keycloak.authenticated && hasClaim) {
+      initialized = true;
+      init();
+    }
+  }, [init, keycloak.authenticated, hasClaim]);
+
   const controller = React.useMemo(
     () => ({
       getUserInfo: async (refresh: boolean = false) => {
@@ -60,21 +85,24 @@ export const useApp = (): [IAppState, IAppController] => {
         const response = await dispatch('get-user-info', () => api.getUserInfo());
         userInfo = response.data;
         store.storeUserInfo(userInfo);
-        if (
-          (!keycloak.isApproved() || refresh) &&
-          (!!response.data.groups.length || !!response.data.roles.length)
-        )
+        if ((!keycloak.hasClaim() || refresh) && !!response.data.roles.length)
           await keycloak.instance.updateToken(86400);
         return userInfo;
       },
-      isUserReady: () => userInfo.id !== 0,
+      requestCode: async (model: IRegisterModel) => {
+        return (await dispatch<IRegisterModel>('request-code', () => api.requestCode(model))).data;
+      },
+      requestApproval: async (model: IUserModel) => {
+        return (await dispatch<IUserModel>('request-approval', () => api.requestApproval(model)))
+          .data;
+      },
+      addError: store.addError,
       removeError: store.removeError,
       clearErrors: store.clearErrors,
-      init: async () => {
-        await init();
-      },
+      initialized,
+      authenticated: keycloak.authenticated ?? false,
     }),
-    [api, dispatch, store, init, keycloak],
+    [api, dispatch, store, keycloak],
   );
 
   return [state, controller];

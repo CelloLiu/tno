@@ -103,7 +103,7 @@ spec:
             - name: Service__VolumePath
               valueFrom:
                 configMapKeyRef:
-                  name: capture-service
+                  name: image-service
                   key: VOLUME_PATH
             - name: Service__MaxFailLimit
               valueFrom:

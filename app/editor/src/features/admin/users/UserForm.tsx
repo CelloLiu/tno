@@ -15,7 +15,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useLookup } from 'store/hooks';
 import { useUsers } from 'store/hooks/admin';
-import { Button, ButtonVariant, Show } from 'tno-core';
+import { Button, ButtonVariant, FieldSize, Show } from 'tno-core';
 import { Col, Row } from 'tno-core';
 import { getEnumStringOptions } from 'utils';
 
@@ -84,7 +84,12 @@ export const UserForm: React.FC = () => {
           <div className="form-container">
             <Row>
               <Col className="form-inputs">
-                <FormikText name="username" label="Username" required={!values.id} />
+                <FormikText
+                  name="username"
+                  label="Username"
+                  required={!values.id}
+                  disabled={!!user.id}
+                />
               </Col>
               <Col
                 className="form-inputs"
@@ -100,7 +105,13 @@ export const UserForm: React.FC = () => {
                 </Show>
               </Col>
             </Row>
-            <FormikText name="email" label="Email" type="email" required={!values.id} />
+            <FormikText
+              name="email"
+              label="Email"
+              type="email"
+              required={!values.id}
+              disabled={!!user.id}
+            />
             <Row>
               <Col className="form-inputs">
                 <FormikText
@@ -127,6 +138,7 @@ export const UserForm: React.FC = () => {
                     label="Roles"
                     name="role"
                     options={roleOptions}
+                    width={FieldSize.Big}
                     placeholder="Select Role"
                     tooltip="Add a role to the user"
                   >

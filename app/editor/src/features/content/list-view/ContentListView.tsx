@@ -1,15 +1,24 @@
-import { ContentTypeName, useCombinedView, useTooltips } from 'hooks';
+import {
+  ContentTypeName,
+  HubMethodName,
+  IWorkOrderModel,
+  useApiHub,
+  useCombinedView,
+  useTooltips,
+} from 'hooks';
 import { IContentModel } from 'hooks/api-editor';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SortingRule } from 'react-table';
+import { Row as TRow } from 'react-table';
 import { useApp, useContent } from 'store/hooks';
-import { Button, ButtonVariant, Col, Page, PagedTable, Row, Show } from 'tno-core';
+import { useContentStore } from 'store/slices';
+import { Col, Page, PagedTable, Row, Show } from 'tno-core';
 
 import { ContentForm } from '../form';
-import { ContentFilter } from '.';
+import { ContentToolBar } from '../tool-bar';
 import { columns, defaultPage } from './constants';
-import { IContentListFilter } from './interfaces';
+import { IContentListAdvancedFilter, IContentListFilter } from './interfaces';
 import * as styled from './styled';
 import { makeFilter } from './utils';
 
@@ -19,46 +28,54 @@ import { makeFilter } from './utils';
  * @returns Component
  */
 export const ContentListView: React.FC = () => {
-  const [{ userInfo }, { isUserReady }] = useApp();
-  const { id } = useParams();
-  const [{ filter, filterAdvanced, content }, { findContent, storeFilter }] = useContent();
+  const [{ userInfo }] = useApp();
+  const { id: contentId = '' } = useParams();
+  const [, { updateContent }] = useContentStore();
+  const [{ filter, filterAdvanced, content }, { findContent, getContent, storeFilter }] =
+    useContent();
   const navigate = useNavigate();
   const { combined, formType } = useCombinedView();
   useTooltips();
+  var hub = useApiHub();
+
   const [contentType, setContentType] = React.useState(formType ?? ContentTypeName.Snippet);
   const [loading, setLoading] = React.useState(false);
-  const [activeId, setActiveId] = React.useState<number>(parseInt(id ?? '0'));
 
-  // Set the page for the grid table.
-  const page = !!content
-    ? new Page(content.page - 1, content.quantity, content?.items, content.total)
-    : defaultPage;
+  const page = React.useMemo(
+    () =>
+      !!content
+        ? new Page(content.page - 1, content.quantity, content?.items, content.total)
+        : defaultPage,
+    [content],
+  );
   const userId = userInfo?.id ?? '';
+  const isReady = !!userId && filter.userId !== '';
+
+  const onWorkOrder = React.useCallback(
+    (workOrder: IWorkOrderModel) => {
+      if (!!workOrder.contentId) {
+        getContent(workOrder.contentId ?? 0).then((content) => {
+          updateContent([content]);
+        });
+      }
+    },
+    [getContent, updateContent],
+  );
 
   React.useEffect(() => {
-    setActiveId(parseInt(id ?? '0'));
-  }, [id]);
-
-  React.useEffect(() => {
-    if (userId !== 0 && filter.userId === '' && filter.userId !== userId) {
-      storeFilter({ ...filter, userId });
-    }
-  }, [userId, filter, storeFilter]);
+    return hub.listen(HubMethodName.WorkOrder, onWorkOrder);
+  }, [onWorkOrder, hub]);
 
   const fetch = React.useCallback(
-    async (filter: IContentListFilter) => {
+    async (filter: IContentListFilter & Partial<IContentListAdvancedFilter>) => {
       try {
         setLoading(true);
         const data = await findContent(
           makeFilter({
             ...filter,
-            ...filterAdvanced,
           }),
         );
-        const page = new Page(data.page - 1, data.quantity, data?.items, data.total);
-
-        // setPage(page);
-        return page;
+        return new Page(data.page - 1, data.quantity, data?.items, data.total);
       } catch (error) {
         // TODO: Handle error
         throw error;
@@ -66,18 +83,24 @@ export const ContentListView: React.FC = () => {
         setLoading(false);
       }
     },
-    [filterAdvanced, findContent],
+    [findContent],
   );
 
   React.useEffect(() => {
-    // Only make a request if the user has been set.
-    if (isUserReady() && filter.userId !== '') {
-      fetch(filter);
+    // Required because the first time this page is loaded directly the user has not been set.
+    // Don't make a request until the user has been set.
+    if (userId !== '' && filter.userId === '') {
+      storeFilter({ ...filter, userId });
     }
-    // Only want to make a request when filter or sort change.
-    // 'fetch' regrettably changes any time the advanced filter changes.
+  }, [userId, filter, storeFilter]);
+
+  React.useEffect(() => {
+    if (isReady) {
+      fetch({ ...filter, ...filterAdvanced });
+    }
+    // Do not want to fetch when the advanced filter changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, isUserReady()]);
+  }, [isReady, filter, fetch]);
 
   const handleChangePage = React.useCallback(
     (pi: number, ps?: number) => {
@@ -90,85 +113,43 @@ export const ContentListView: React.FC = () => {
   const handleChangeSort = React.useCallback(
     (sortBy: SortingRule<IContentModel>[]) => {
       const sorts = sortBy.map((sb) => ({ id: sb.id, desc: sb.desc }));
-      const same = sorts.every(
-        (val, i) => val.id === filter.sort[i]?.id && val.desc === filter.sort[i]?.desc,
-      );
-      if (!same) {
-        storeFilter({ ...filter, sort: sorts });
-      }
+      storeFilter({ ...filter, sort: sorts });
     },
     [storeFilter, filter],
   );
 
-  const handleRowClick = (content: IContentModel) => {
-    setActiveId(content.id);
-    setContentType(content.contentType);
-    navigate(`/contents/combined/${content.id}`);
-  };
-
-  const hideColumns = (combined: boolean, contentType?: ContentTypeName) => {
-    const hiddenColumns = [];
-
-    if (combined) {
-      hiddenColumns.push('ownerId');
-      hiddenColumns.push('status');
-    }
-
-    if (contentType !== ContentTypeName.PrintContent) {
-      hiddenColumns.push('page');
-    }
-
-    return hiddenColumns;
+  const handleRowClick = (row: TRow<IContentModel>) => {
+    setContentType(row.original.contentType);
+    navigate(`/contents/combined/${row.original.id}`);
   };
 
   return (
-    <styled.ContentListView maxWidth={combined ? 'fit-content' : ''}>
-      <Row wrap="nowrap">
-        <Col className="left-pane">
-          <ContentFilter search={fetch} />
+    <styled.ContentListView maxWidth={''}>
+      <Col wrap="nowrap">
+        <ContentToolBar onSearch={fetch} />
+
+        <Row className="top-pane">
           <Row className="content-list">
             <PagedTable
-              columns={columns()}
-              hiddenColumns={hideColumns(combined, filter.contentType)}
+              columns={columns}
               page={page}
               isLoading={loading}
               sorting={{ sortBy: filter.sort }}
-              onRowClick={(row) => handleRowClick(row.original)}
-              activeId={activeId}
+              getRowId={(content) => content.id.toString()}
+              selectedRowIds={{ [contentId]: true }}
+              onRowClick={handleRowClick}
               onChangePage={handleChangePage}
               onChangeSort={handleChangeSort}
             />
           </Row>
-          <Row className="content-actions">
-            <Button
-              name="create"
-              onClick={() => navigate('/snippets/0')}
-              variant={ButtonVariant.secondary}
-            >
-              Create Snippet
-            </Button>
-            <Button
-              name="create"
-              onClick={() => navigate('/papers/0')}
-              variant={ButtonVariant.secondary}
-            >
-              Create Print Content
-            </Button>
-            <Button
-              name="create"
-              onClick={() => navigate('/images/0')}
-              variant={ButtonVariant.secondary}
-            >
-              Create Image
-            </Button>
-          </Row>
-        </Col>
+        </Row>
         <Show visible={combined}>
-          <Col className="right-pane">
+          <hr />
+          <Row className="bottom-pane">
             <ContentForm contentType={contentType} />
-          </Col>
+          </Row>
         </Show>
-      </Row>
+      </Col>
     </styled.ContentListView>
   );
 };

@@ -68,7 +68,7 @@ public class ClipAction : CommandAction<ClipOptions>
 
                 // Fetch content reference.
                 var content = CreateContentReference(manager.Ingest, schedule);
-                var reference = await this.Api.FindContentReferenceAsync(content.Source, content.Uid);
+                var reference = await this.FindContentReferenceAsync(content.Source, content.Uid);
 
                 // Override the original action name based on the schedule.
                 name = manager.VerifySchedule(schedule) ? "start" : "stop";
@@ -77,7 +77,6 @@ public class ClipAction : CommandAction<ClipOptions>
                 // TODO: Handle failures when a clip file was created but error'ed out.
                 if (name == "start" && !IsRunning(process) && !FileExists(manager, schedule))
                 {
-                    var sendMessage = manager.Ingest.PostToKafka();
                     if (reference == null)
                     {
                         reference = await this.Api.AddContentReferenceAsync(content);
@@ -86,17 +85,15 @@ public class ClipAction : CommandAction<ClipOptions>
                     {
                         // If another process has it in progress only attempt to do an import if it's
                         // more than an 2 minutes old. Assumption is that it is stuck.
-                        reference = await this.Api.UpdateContentReferenceAsync(reference);
+                        reference = await this.UpdateContentReferenceAsync(reference, WorkflowStatus.InProgress);
                     }
-                    else sendMessage = false;
+                    else reference = null;
 
                     if (reference != null)
                     {
                         // TODO: Waiting for each clip to complete isn't ideal.  It needs to handle multiple processes.  However it is pretty quick at creating clips.
                         await RunProcessAsync(process, cancellationToken);
-
-                        var messageResult = sendMessage ? await SendMessageAsync(process, manager.Ingest, schedule, reference) : null;
-                        await UpdateContentReferenceAsync(reference, messageResult);
+                        await this.ContentReceivedAsync(manager, reference, CreateSourceContent(process, manager.Ingest, schedule, reference));
                     }
                 }
                 else if (name == "stop")
@@ -179,8 +176,10 @@ public class ClipAction : CommandAction<ClipOptions>
     /// <param name="reference"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private async Task<DeliveryResultModel<SourceContent>> SendMessageAsync(ICommandProcess process, IngestModel ingest, ScheduleModel schedule, ContentReferenceModel reference)
+    private SourceContent? CreateSourceContent(ICommandProcess process, IngestModel ingest, ScheduleModel schedule, ContentReferenceModel reference)
     {
+        if (reference == null) return null;
+
         var publishedOn = reference.PublishedOn ?? DateTime.UtcNow;
         var file = (string)process.Data["filename"];
         var path = file.Replace(this.Options.VolumePath, "");
@@ -200,9 +199,7 @@ public class ClipAction : CommandAction<ClipOptions>
             FilePath = path?.MakeRelativePath() ?? "",
             Language = ingest.GetConfigurationValue("language") ?? ""
         };
-        var result = await this.Api.SendMessageAsync(reference.Topic, content);
-        if (result == null) throw new InvalidOperationException($"Failed to receive result from Kafka for {reference.Source}:{reference.Uid}");
-        return result;
+        return content;
     }
 
     /// <summary>
@@ -311,9 +308,12 @@ public class ClipAction : CommandAction<ClipOptions>
         // TODO: Handle issue where capture failed and has multiple files.
         var path = this.Options.VolumePath.CombineWith(ingest.SourceConnection?.GetConfigurationValue("path")?.MakeRelativePath() ?? "", $"{ingest.Source?.Code}/{GetDateTimeForTimeZone(ingest):yyyy-MM-dd}");
         var clipStart = schedule.StartAt;
+        var filter = ingest.GetConfigurationValue("sourceFile");
 
         // Review each file that was captured to determine which one is valid for this clip schedule.
-        foreach (var file in Directory.GetFiles(path).Where(f => ParseTimeFromFileName(Path.GetFileName(f)) <= clipStart))
+        foreach (var file in Directory.GetFiles(path)
+            .Where(f => String.IsNullOrWhiteSpace(filter) || f.EndsWith(filter))
+            .Where(f => ParseTimeFromFileName(Path.GetFileName(f)) <= clipStart))
         {
             // The offset is before the source file, so we can't use it.
             var offset = CalcStartOffset(ingest, schedule, file);

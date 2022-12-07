@@ -59,7 +59,9 @@ public class UserService : BaseService<User, int>, IUserService
         if (filter.IsSystemAccount != null)
         {
             query = query.Where(c => c.IsSystemAccount == filter.IsSystemAccount);
-        } else {
+        }
+        else
+        {
             query = query.Where(c => !c.IsSystemAccount);
         }
 
@@ -91,7 +93,7 @@ public class UserService : BaseService<User, int>, IUserService
             .FirstOrDefault(c => c.Id == id);
     }
 
-    public User? FindByKey(Guid key)
+    public User? FindByUserKey(string key)
     {
         return this.Context.Users
             .Where(u => u.Key == key).FirstOrDefault();
@@ -100,22 +102,22 @@ public class UserService : BaseService<User, int>, IUserService
     public User? FindByUsername(string username)
     {
         return this.Context.Users
-            .Where(u => u.Username == username).FirstOrDefault();
+            .Where(u => u.Username.ToLower() == username.ToLower()).FirstOrDefault();
     }
 
     public IEnumerable<User> FindByEmail(string email)
     {
         return this.Context.Users
-            .Where(u => u.Email == email);
+            .Where(u => u.Email.ToLower() == email.ToLower());
     }
 
-    public override User Add(User entity)
+    public override User AddAndSave(User entity)
     {
-        base.Add(entity);
+        base.AddAndSave(entity);
         return FindById(entity.Id)!;
     }
 
-    public override User Update(User entity)
+    public override User UpdateAndSave(User entity)
     {
         var original = FindById(entity.Id);
 
@@ -136,7 +138,7 @@ public class UserService : BaseService<User, int>, IUserService
             if (String.IsNullOrWhiteSpace(entity.Code)) original.CodeCreatedOn = null;
             else if (original.Code != entity.Code) original.CodeCreatedOn = DateTime.UtcNow;
 
-            base.Update(original);
+            base.UpdateAndSave(original);
             return FindById(entity.Id)!;
         }
 

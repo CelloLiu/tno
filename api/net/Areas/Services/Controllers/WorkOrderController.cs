@@ -1,18 +1,21 @@
 using System.Net;
+using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.WorkOrder;
 using TNO.API.Models;
+using TNO.API.SignalR;
 using TNO.DAL.Services;
-using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// WorkOrderController class, provides WorkOrder endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Administrator)]
+// [ClientRoleAuthorize(ClientRole.Administrator)]
+[Authorize]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -49,7 +52,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
@@ -68,7 +71,7 @@ public class WorkOrderController : ControllerBase
     /// <param name="workOrder"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(WorkOrderModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "WorkOrder" })]
@@ -77,8 +80,8 @@ public class WorkOrderController : ControllerBase
         var entity = _service.FindById(workOrder.Id);
         if (entity == null) throw new InvalidOperationException("Work order does not exist");
 
-        _service.Update(workOrder.UpdateEntity(entity));
-        await _hub.Clients.All.SendAsync("Update", workOrder.ContentId);
+        _service.UpdateAndSave(workOrder.UpdateEntity(entity));
+        await _hub.Clients.All.SendAsync("WorkOrder", workOrder);
         return new JsonResult(new WorkOrderModel(entity));
     }
     #endregion

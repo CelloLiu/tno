@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -50,7 +51,7 @@ public class DataLocationController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<DataLocationModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]
     public IActionResult FindAll()
@@ -64,7 +65,7 @@ public class DataLocationController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(DataLocationModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]
@@ -82,13 +83,13 @@ public class DataLocationController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(DataLocationModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]
     public IActionResult Add(DataLocationModel model)
     {
-        var result = _service.Add(model.ToEntity(_serializerOptions));
+        var result = _service.AddAndSave(model.ToEntity(_serializerOptions));
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new DataLocationModel(result, _serializerOptions));
     }
 
@@ -98,13 +99,13 @@ public class DataLocationController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(DataLocationModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]
     public IActionResult Update(DataLocationModel model)
     {
-        var result = _service.Update(model.ToEntity(_serializerOptions));
+        var result = _service.UpdateAndSave(model.ToEntity(_serializerOptions));
         return new JsonResult(new DataLocationModel(result, _serializerOptions));
     }
 
@@ -114,13 +115,13 @@ public class DataLocationController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(DataLocationModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]
     public IActionResult Delete(DataLocationModel model)
     {
-        _service.Delete(model.ToEntity(_serializerOptions));
+        _service.DeleteAndSave(model.ToEntity(_serializerOptions));
         return new JsonResult(model);
     }
     #endregion

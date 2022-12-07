@@ -24,6 +24,7 @@ namespace TNO.Core.Http
         /// get - The configuration options.
         /// </summary>
         public AuthClientOptions AuthClientOptions { get; }
+
         /// <summary>
         /// get - The configuration options.
         /// </summary>
@@ -69,8 +70,8 @@ namespace TNO.Core.Http
 
             if (response.IsSuccessStatusCode)
             {
-                using var responseStream = await response.Content.ReadAsStreamAsync();
-                return await responseStream.DeserializeAsync<Models.OpenIdConnectModel>();
+                var body = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<Models.OpenIdConnectModel>(body, _serializeOptions);
             }
             else
             {
@@ -116,8 +117,8 @@ namespace TNO.Core.Http
             // Extract the JWT token to use when making the request.
             if (response.IsSuccessStatusCode)
             {
-                using var responseStream = await response.Content.ReadAsStreamAsync();
-                _accessToken = await responseStream.DeserializeAsync<Models.TokenModel>();
+                var body = await response.Content.ReadAsStringAsync();
+                _accessToken = JsonSerializer.Deserialize<Models.TokenModel>(body, _serializeOptions);
                 return $"Bearer {_accessToken?.AccessToken}";
             }
             else
@@ -140,10 +141,10 @@ namespace TNO.Core.Http
         {
             var authority = this.AuthClientOptions.Authority ??
                 throw new ConfigurationException($"Configuration 'OpenIdConnect:Authority' is missing or invalid.");
-            var secret = this.AuthClientOptions.Secret ??
-                throw new ConfigurationException($"Configuration 'OpenIdConnect:Secret' is missing or invalid.");
             var audience = this.AuthClientOptions.Audience ??
                 throw new ConfigurationException($"Configuration 'OpenIdConnect:Audience' is missing or invalid.");
+            var secret = this.AuthClientOptions.Secret ??
+                throw new ConfigurationException($"Configuration 'OpenIdConnect:Secret' is missing or invalid.");
 
             // Use the configuration settings if available, or make a request to Keycloak for the appropriate endpoint URL.
             var keycloakTokenUrl = this.OpenIdConnectOptions.Token;
@@ -158,6 +159,9 @@ namespace TNO.Core.Http
             }
 
             using var tokenMessage = new HttpRequestMessage(HttpMethod.Post, keycloakTokenUrl);
+            // var authentication = $"{audience}:{secret}";
+            // var base64 = Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(authentication));
+            // tokenMessage.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64);
             var p = new Dictionary<string, string>
                 { { "client_id", audience },
                     { "grant_type", "client_credentials" },

@@ -6,7 +6,6 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -18,18 +17,21 @@ using Microsoft.IdentityModel.Logging;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Prometheus;
-using TNO.API.Keycloak;
 using TNO.API.Middleware;
 using TNO.Core.Converters;
 using TNO.Core.Http;
+using TNO.CSS;
 using TNO.DAL;
 using TNO.Keycloak;
 using TNO.Kafka;
 using TNO.API.Config;
 using Microsoft.AspNetCore.Authorization;
 using TNO.API;
-using Microsoft.AspNetCore.SignalR;
+using TNO.API.CSS;
+using NPOI.Util;
+using TNO.API.SignalR;
 
+DotNetEnv.Env.Load();
 var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
 var builder = WebApplication.CreateBuilder(args);
@@ -85,6 +87,9 @@ builder.Services.AddControllers(options =>
 builder.Services.AddOptions<KestrelServerOptions>().Bind(config.GetSection("Kestrel"));
 builder.Services.AddOptions<FormOptions>().Bind(config.GetSection("Form"));
 builder.Services.AddOptions<KafkaOptions>().Bind(config.GetSection("Kafka"));
+var o = builder.Services.AddOptions<SignalROptions>().Bind(config.GetSection("SignalR"));
+var signalROptions = new SignalROptions();
+config.GetSection("SignalR").Bind(signalROptions);
 
 // The following dependencies provide dynamic authorization based on keycloak client roles.
 builder.Services.AddOptions<TNO.API.Config.KeycloakOptions>().Bind(config.GetSection("Keycloak"));
@@ -111,9 +116,11 @@ builder.Services.AddAuthentication(options =>
         options.TokenValidationParameters = new TokenValidationParameters()
         {
             ValidateIssuerSigningKey = true,
-            ValidIssuer = section.GetValue<string>("Issuer"),
+            // ValidIssuer = section.GetValue<string>("Issuer"),
+            ValidIssuers = section.GetValue<string>("Issuer")?.Split(",") ?? Array.Empty<string>(),
             ValidateIssuer = section.GetValue<bool>("ValidateIssuer"),
-            ValidAudience = section.GetValue<string>("Audience"),
+            // ValidAudience = section.GetValue<string>("Audience"),
+            ValidAudiences = section.GetValue<string>("Audience")?.Split(",") ?? Array.Empty<string>(),
             ValidateAudience = section.GetValue<bool>("ValidateAudience"),
             ValidateLifetime = true
         };
@@ -125,6 +132,20 @@ builder.Services.AddAuthentication(options =>
         }
         options.Events = new JwtBearerEvents()
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+
+                // If the request is for our hub...
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments(signalROptions.HubPath))
+                {
+                    // Read the token out of the query string
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = context =>
             {
                 return Task.CompletedTask;
@@ -183,16 +204,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services
-  .AddTNOServices(config, env)
-  .AddKafkaMessenger(config);
-
-builder.Services
+    .AddTNOServices(config, env)
+    .AddKafkaMessenger(config)
     .AddHttpClient()
     .AddTransient<JwtSecurityTokenHandler>()
     .AddTransient<IHttpRequestClient, HttpRequestClient>()
-    .AddTransient<IOpenIdConnectRequestClient, OpenIdConnectRequestClient>()
-    .AddTransient<IKeycloakHelper, KeycloakHelper>()
-    .AddKeycloakService(config.GetSection("Keycloak:ServiceAccount"));
+    .AddTransient<ICssHelper, CssHelper>()
+    .AddCssEnvironmentService(config.GetSection("CSS"));
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -216,12 +234,25 @@ builder.Services.AddMemoryCache();
 
 builder.Services.AddCors(options =>
     options.AddPolicy(name: "CorsPolicy",
-        cfg => {
+        cfg =>
+        {
             cfg.AllowAnyHeader();
             cfg.AllowAnyMethod();
             cfg.WithOrigins(builder.Configuration["AllowedCORS"]);
         }));
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = signalROptions.EnableDetailedErrors;
+    })
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.DefaultIgnoreCondition = jsonSerializerOptions.DefaultIgnoreCondition;
+        options.PayloadSerializerOptions.PropertyNameCaseInsensitive = jsonSerializerOptions.PropertyNameCaseInsensitive;
+        options.PayloadSerializerOptions.PropertyNamingPolicy = jsonSerializerOptions.PropertyNamingPolicy;
+        options.PayloadSerializerOptions.WriteIndented = jsonSerializerOptions.WriteIndented;
+        options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.PayloadSerializerOptions.Converters.Add(new Int32ToStringJsonConverter());
+    });
 
 var app = builder.Build();
 
@@ -269,6 +300,6 @@ app.UseEndpoints(endpoints =>
 
 app.MapControllers();
 
-app.MapHub<WorkOrderHub>(config.GetValue<string>("HubPath"));
+app.MapHub<WorkOrderHub>(signalROptions.HubPath);
 
 app.Run();

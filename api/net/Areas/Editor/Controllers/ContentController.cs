@@ -16,14 +16,15 @@ using TNO.Core.Extensions;
 using TNO.Kafka;
 using TNO.API.Config;
 using TNO.Kafka.Models;
-using TNO.Keycloak;
+using System.Net.Mime;
 
 namespace TNO.API.Areas.Editor.Controllers;
 
 /// <summary>
 /// ContentController class, provides Content endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Editor)]
+// [ClientRoleAuthorize(ClientRole.Editor)]
+[Authorize]
 [ApiController]
 [Area("editor")]
 [ApiVersion("1.0")]
@@ -85,7 +86,7 @@ public class ContentController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<ContentModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public IActionResult Find()
@@ -103,7 +104,7 @@ public class ContentController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Content" })]
@@ -122,13 +123,13 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> AddAsync(ContentModel model)
     {
-        var content = _contentService.Add((Content)model);
+        var content = _contentService.AddAndSave((Content)model);
 
         if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
         {
@@ -151,13 +152,13 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> UpdateAsync(ContentModel model)
     {
-        var content = _contentService.Update((Content)model);
+        var content = _contentService.UpdateAndSave((Content)model);
 
         if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
         {
@@ -185,13 +186,13 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> DeleteAsync(ContentModel model)
     {
-        _contentService.Delete((Content)model);
+        _contentService.DeleteAndSave((Content)model);
 
         if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
         {
@@ -210,14 +211,14 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}/publish")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> PublishAsync(ContentModel model)
     {
         if (model.Status != ContentStatus.Published) model.Status = ContentStatus.Publish;
-        var content = _contentService.Update((Content)model);
+        var content = _contentService.UpdateAndSave((Content)model);
 
         if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
         {
@@ -236,13 +237,13 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}/unpublish")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public async Task<IActionResult> UnpublishAsync(ContentModel model)
     {
-        var content = _contentService.Update((Content)model);
+        var content = _contentService.UpdateAndSave((Content)model);
         if (!new[] { ContentStatus.Published }.Contains(content.Status)) throw new InvalidOperationException("Content is an invalid status, and cannot be unpublished.");
 
         if (!String.IsNullOrWhiteSpace(_kafkaOptions.IndexingTopic))
@@ -255,6 +256,8 @@ public class ContentController : ControllerBase
         return new JsonResult(new ContentModel(content));
     }
 
+    #region Files
+
     /// <summary>
     /// Upload a file and link it to the specified content.
     /// Only a single file can be linked to content, each upload will overwrite.
@@ -264,7 +267,7 @@ public class ContentController : ControllerBase
     /// <param name="files"></param>
     /// <returns></returns>
     [HttpPost("{id}/upload")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
@@ -291,7 +294,7 @@ public class ContentController : ControllerBase
     /// <param name="path"></param>
     /// <returns></returns>
     [HttpPut("{id}/attach")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
@@ -351,5 +354,6 @@ public class ContentController : ControllerBase
         var stream = System.IO.File.OpenRead(safePath);
         return File(stream, contentType: info.MimeType!, fileDownloadName: info.Name, enableRangeProcessing: true);
     }
+    #endregion
     #endregion
 }

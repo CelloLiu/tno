@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -46,7 +47,7 @@ public class ActionController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<ActionModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Action" })]
     public IActionResult FindAll()
@@ -62,7 +63,7 @@ public class ActionController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ActionModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Action" })]
@@ -80,13 +81,13 @@ public class ActionController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ActionModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Action" })]
     public IActionResult Add(ActionModel model)
     {
-        var result = _service.Add(model.ToEntity());
+        var result = _service.AddAndSave(model.ToEntity());
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new ActionModel(result));
     }
 
@@ -96,13 +97,13 @@ public class ActionController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ActionModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Action" })]
     public IActionResult Update(ActionModel model)
     {
-        var result = _service.Update(model.ToEntity());
+        var result = _service.UpdateAndSave(model.ToEntity());
         return new JsonResult(new ActionModel(result));
     }
 
@@ -112,13 +113,13 @@ public class ActionController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ActionModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Action" })]
     public IActionResult Delete(ActionModel model)
     {
-        _service.Delete(model.ToEntity());
+        _service.DeleteAndSave(model.ToEntity());
         return new JsonResult(model);
     }
     #endregion

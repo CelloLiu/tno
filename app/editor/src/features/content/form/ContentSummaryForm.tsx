@@ -1,5 +1,7 @@
-import { IOptionItem, OptionItem, RadioGroup, TimeInput } from 'components/form';
-import { FormikRadioGroup, FormikSelect, FormikText, FormikTextArea } from 'components/formik';
+import 'react-quill/dist/quill.snow.css';
+
+import { IOptionItem, OptionItem, RadioGroup, TimeInput, Wysiwyg } from 'components/form';
+import { FormikRadioGroup, FormikSelect, FormikText } from 'components/formik';
 import { FormikDatePicker } from 'components/formik/datepicker';
 import { Modal } from 'components/modal/Modal';
 import { IFile, Upload } from 'components/upload';
@@ -40,7 +42,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
   savePressed,
 }) => {
   const keycloak = useKeycloakWrapper();
-  const [{ series, categories, licenses, tags, users }] = useLookup();
+  const [{ series, categories, licenses, users }] = useLookup();
   const { values, setFieldValue, errors } = useFormikContext<IContentForm>();
   const { isShowing, toggle } = useModal();
   const [, { download }] = useContent();
@@ -85,7 +87,9 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
 
   /** set default value to todays date */
   React.useEffect(() => {
-    if (!values.publishedOn) setFieldValue('publishedOn', moment().format('MMM D, yyyy'));
+    if (!values.publishedOn) {
+      setFieldValue('publishedOn', moment().format('MMM D, yyyy HH:mm:ss'));
+    }
   }, [setFieldValue, values.publishedOn]);
 
   React.useEffect(() => {
@@ -109,12 +113,6 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
       videoRef.current.src = streamUrl;
     }
   }, [streamUrl, videoRef]);
-
-  const extractTags = (values: string[]) => {
-    return tags
-      .filter((tag) => values.some((value: string) => value.toLowerCase() === tag.id.toLowerCase()))
-      .map((tag) => tag);
-  };
 
   const setMedia = () => {
     setStreamUrl(!!streamUrl ? '' : `/api/editor/contents/upload/stream?path=${path}`);
@@ -167,15 +165,17 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 label="Event of Day Category"
                 width={FieldSize.Medium}
                 options={categoryOptions}
-                clearValue={[]}
                 value={
-                  values.categories.length
-                    ? categoryOptions.find((c) => c.value === values.categories[0].id) ?? []
+                  !!values.categories?.length
+                    ? categoryOptions.find((c) => c.value === values.categories[0].id)
                     : []
                 }
                 onChange={(e: any) => {
                   // only supports one at a time right now
-                  const value = categories.find((c) => c.id === e.value);
+                  let value;
+                  if (!!e?.value) {
+                    value = categories.find((c) => c.id === e.value);
+                  }
                   setFieldValue('categories', !!value ? [value] : []);
                 }}
               />
@@ -184,7 +184,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 label="Score"
                 type="number"
                 width={FieldSize.Medium}
-                disabled={!values.categories.length}
+                disabled={!values.categories?.length}
               />
             </Row>
           </Show>
@@ -199,8 +199,8 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 !!values.publishedOn ? moment(values.publishedOn).toString() : undefined
               }
               value={!!values.publishedOn ? moment(values.publishedOn).format('MMM D, yyyy') : ''}
-              onChange={(date: any) => {
-                setFieldValue('publishedOn', date);
+              onChange={(date) => {
+                setFieldValue('publishedOn', moment(date).format('MMM D, yyyy HH:mm:ss'));
               }}
             />
             <Show visible={contentType !== ContentTypeName.Image}>
@@ -209,20 +209,17 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 label="Time"
                 disabled={!values.publishedOn}
                 width="7em"
-                value={!!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : ''}
-                placeholder={
-                  !!values.publishedOn ? moment(values.publishedOn).format('HH:mm:ss') : 'HH:MM:SS'
-                }
+                value={!!values.publishedOn ? values.publishedOnTime : ''}
+                placeholder={!!values.publishedOn ? values.publishedOnTime : 'HH:MM:SS'}
                 onChange={(e) => {
                   const date = new Date(values.publishedOn);
                   const hours = e.target.value?.split(':');
-                  if (
-                    !!hours &&
-                    !values.publishedOnTime?.includes('_') &&
-                    values.publishedOnTime !== ''
-                  ) {
+                  if (!!hours && !!e.target.value && !e.target.value.includes('_')) {
                     date.setHours(Number(hours[0]), Number(hours[1]), Number(hours[2]));
-                    setFieldValue('publishedOn', date.toISOString());
+                    setFieldValue(
+                      'publishedOn',
+                      moment(date.toISOString()).format('MMM D, yyyy HH:mm:ss'),
+                    );
                   }
                 }}
               />
@@ -233,7 +230,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
           <Col className="licenses">
             <RadioGroup
               name="expireOptions"
-              label="License"
+              label="Licence"
               spaceUnderRadio
               options={licenseOptions}
               value={licenseOptions.find((e) => e.value === values?.licenseId)}
@@ -243,48 +240,18 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
         </Show>
       </Row>
       <Show visible={contentType !== ContentTypeName.Image}>
-        <Row className="textarea">
-          <Col flex="1 1 0">
-            <Show visible={contentType === ContentTypeName.Snippet}>
-              <FormikTextArea
-                name="summary"
-                label="Summary"
-                required
-                onBlur={(e) => {
-                  const value = e.currentTarget.value;
-                  if (!!value) {
-                    const stringValue = value.match(tagMatch)?.toString();
-                    const tagValues =
-                      stringValue?.substring(1, stringValue.length - 1).split(', ') ?? [];
-                    const tags = extractTags(tagValues);
-                    if (!_.isEqual(tags, values.tags)) setFieldValue('tags', tags);
-                  }
-                }}
-              />
-            </Show>
-            <Show
-              visible={
-                contentType !== ContentTypeName.Snippet && contentType !== ContentTypeName.Image
-              }
-            >
-              <FormikTextArea
-                name="body"
-                label="Story"
-                required
-                onBlur={(e) => {
-                  const value = e.currentTarget.value;
-                  if (!!value) {
-                    const stringValue = value.match(tagMatch)?.toString();
-                    const tagValues =
-                      stringValue?.substring(1, stringValue.length - 1).split(', ') ?? [];
-                    const tags = extractTags(tagValues);
-                    if (!_.isEqual(tags, values.tags)) setFieldValue('tags', tags);
-                  }
-                }}
-              />
-            </Show>
-          </Col>
-        </Row>
+        <Col flex="1 1 0">
+          <Show visible={contentType === ContentTypeName.Snippet}>
+            <Wysiwyg label="Summary" required fieldName="summary" />
+          </Show>
+          <Show
+            visible={
+              contentType !== ContentTypeName.Snippet && contentType !== ContentTypeName.Image
+            }
+          >
+            <Wysiwyg label="Story" fieldName="body" />
+          </Show>
+        </Col>
       </Show>
       <Show visible={contentType !== ContentTypeName.Image}>
         <Row>
@@ -362,7 +329,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
         </Row>
         <Show visible={contentType === ContentTypeName.Image && !!streamUrl}>
           <Col>
-            <img alt="" src={streamUrl}></img>
+            <img alt="" className="object-fit" src={streamUrl}></img>
           </Col>
         </Show>
         <Show visible={contentType !== ContentTypeName.Image}>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -48,7 +49,7 @@ public class SeriesController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("all")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IEnumerable<SeriesModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Series" })]
     public IActionResult FindAll()
@@ -61,7 +62,7 @@ public class SeriesController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<SeriesModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Series" })]
     public IActionResult Find()
@@ -79,7 +80,7 @@ public class SeriesController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SeriesModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Series" })]
@@ -97,13 +98,13 @@ public class SeriesController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SeriesModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Series" })]
     public IActionResult Add(SeriesModel model)
     {
-        var result = _service.Add((Series)model);
+        var result = _service.AddAndSave((Series)model);
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new SeriesModel(result));
     }
 
@@ -113,13 +114,13 @@ public class SeriesController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SeriesModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Series" })]
     public IActionResult Update(SeriesModel model)
     {
-        var result = _service.Update((Series)model);
+        var result = _service.UpdateAndSave((Series)model);
         return new JsonResult(new SeriesModel(result));
     }
 
@@ -129,13 +130,13 @@ public class SeriesController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SeriesModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Series" })]
     public IActionResult Delete(SeriesModel model)
     {
-        _service.Delete((Series)model);
+        _service.DeleteAndSave((Series)model);
         return new JsonResult(model);
     }
     #endregion

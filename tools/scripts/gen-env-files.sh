@@ -48,6 +48,9 @@ AZURE_TABLE_PORT=$portAzureTable
 API_HTTP_PORT=$portApi
 API_HTTPS_PORT=$portApiHttps
 
+CSS_HTTP_PORT=$portCssApi
+CSS_HTTPS_PORT=$portCssApiHttps
+
 APP_EDITOR_HTTP_PORT=$portAppEditor
 APP_EDITOR_HTTPS_PORT=$portAppEditorHttps
 
@@ -189,20 +192,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8080
 
-Keycloak__ClientId=89ff6cf4-3755-4329-adab-ccfb74052c97
-keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
-keycloak__ServiceAccount__Authority=http://host.docker.internal:$portKeycloak
-keycloak__ServiceAccount__Secret=
-
 ConnectionStrings__TNO=Host=host.docker.internal:$portDatabase;Database=$dbName;Include Error Detail=true;Log Parameters=true;
 
 DB_POSTGRES_USERNAME=$dbUser
 DB_POSTGRES_PASSWORD=$password
-
-# Only required when running in devcontainer for debugging.
-# Storage__UploadPath=uploads
-# Storage__CapturePath=uploads
-# Keycloak__Issuer=http://localhost:$portKeycloak/auth/realms/tno
 
 ELASTIC_URIS=host.docker.internal:$portElastic
 ELASTIC_USERNAME=$elasticUser
@@ -218,8 +211,50 @@ AZURE_VIDEO_ANALYZER_SUBSCRIPTION_KEY=$azureVideoAnalyzerKey
 AZURE_VIDEO_ANALYZER_ACCOUNT_ID=$azureVideoAccountId
 AZURE_VIDEO_ANALYZER_LOCATION=$azureVideoLocation
 
-KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:$portKafkaBorkerAdvertisedExternal" >> ./api/net/.env
+KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:$portKafkaBorkerAdvertisedExternal
+
+################################################
+# Only required when running in devcontainer for debugging.
+################################################
+# Storage__UploadPath=uploads
+# Storage__CapturePath=uploads
+# Keycloak__Issuer=http://localhost:$portKeycloak/auth/realms/tno
+
+################################################
+# Remote CSS
+################################################
+# Keycloak__Authority=https://dev.loginproxy.gov.bc.ca/auth/realms/standard
+# Keycloak__Audience=media-monitoring-mmia-3671,mmia-service-account-3994
+# Keycloak__Issuer=media-monitoring-mmia-3671,mmia-service-account-3994
+# CSS__IntegrationId=3671
+# CSS__ClientId=service-account-team-795-4127
+# CSS__Secret={https://bcgov.github.io/sso-requests}
+
+################################################
+# Local Keycloak
+################################################
+keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Keycloak__Audience=tno-app,tno-service-account
+Keycloak__Issuer=tno-app,tno-service-account
+CSS__ApiUrl=http://host.docker.internal:$portCssApi/api
+CSS__Authority=http://host.docker.internal:$portCssApi
+CSS__TokenPath=/api/v1/token
+CSS__ClientId=service-account-team-795-4127
+CSS__Secret={https://bcgov.github.io/sso-requests}" >> ./api/net/.env
     echo "./api/net/.env created"
+fi
+
+# API - CSS
+if test -f "./tools/css-api/.env"; then
+    echo "./tools/css-api/.env exists"
+else
+echo \
+"ASPNETCORE_ENVIRONMENT=Development
+ASPNETCORE_URLS=http://+:8080
+
+# Keycloak API
+Keycloak__Secret={GET KEYCLOAK SERVICE ACCOUNT}" >> ./tools/css-api/.env
+    echo "./tools/css-api/.env created"
 fi
 
 # APP - Editor
@@ -231,7 +266,7 @@ echo \
 CHOKIDAR_USEPOLLING=true
 WDS_SOCKET_PORT=$portNginxEditor
 #API_URL=http://api:80/
-REACT_APP_KEYCLOAK_AUTH_SERVER_URL=http://host.docker.internal:$portKeycloak/auth" >> ./app/editor/.env
+#REACT_APP_KEYCLOAK_AUTH_SERVER_URL=http://host.docker.internal:$portKeycloak/auth" >> ./app/editor/.env
     echo "./app/editor/.env created"
 fi
 
@@ -414,9 +449,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 
@@ -432,9 +468,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 # Service__VolumePath=../data
@@ -451,9 +488,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 # Service__VolumePath=../data
@@ -470,9 +508,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 # Service__VolumePath=../data
@@ -489,9 +528,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 # Service__VolumePath=../data
@@ -508,9 +548,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 Service__TranscriptionTopic=transcription
@@ -527,9 +568,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 Service__AzureCognitiveServicesKey={ENTER A VALID AZURE KEY}
@@ -546,9 +588,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 Service__ElasticsearchUri=http://host.docker.internal:$portElastic
@@ -567,9 +610,10 @@ echo \
 "ASPNETCORE_ENVIRONMENT=Development
 ASPNETCORE_URLS=http://+:8081
 
-Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth/realms/tno
+Auth__Keycloak__Authority=http://host.docker.internal:$portKeycloak/auth
 Auth__Keycloak__Audience=tno-service-account
 Auth__Keycloak__Secret={YOU WILL NEED TO GET THIS FROM KEYCLOAK}
+Auth__OIDC__Token=/realms/tno/protocol/openid-connect/token
 
 Service__ApiUrl=http://host.docker.internal:$portApi/api
 

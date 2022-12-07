@@ -12,6 +12,7 @@ export interface IContentFilter extends IPageFilter {
   section?: string;
   status?: ContentStatus;
   includedInCategory?: boolean;
+  includeHidden?: boolean;
   createdOn?: string;
   createdStartOn?: string;
   createdEndOn?: string;
@@ -22,6 +23,7 @@ export interface IContentFilter extends IPageFilter {
   publishedStartOn?: string;
   publishedEndOn?: string;
   actions?: string[];
+  productIds?: number[];
   logicalOperator?: LogicalOperator;
   sort?: string[];
 }

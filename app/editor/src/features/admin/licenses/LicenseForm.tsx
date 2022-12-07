@@ -43,7 +43,7 @@ export const LicenseForm: React.FC = () => {
       const result = !license.id ? await api.addLicense(values) : await api.updateLicense(values);
       setLicense(result);
       toast.success(`${result.name} has successfully been saved.`);
-      if (!originalId) navigate(`/admin/licenses/${result.id}`);
+      if (!originalId) navigate(`/admin/licences/${result.id}`);
     } catch {}
   };
 
@@ -51,9 +51,9 @@ export const LicenseForm: React.FC = () => {
     <styled.LicenseForm>
       <IconButton
         iconType="back"
-        label="Back to Licenses"
+        label="Back to Licences"
         className="back-button"
-        onClick={() => navigate('/admin/licenses')}
+        onClick={() => navigate('/admin/licences')}
       />
       <FormikForm
         initialValues={license}
@@ -136,7 +136,7 @@ export const LicenseForm: React.FC = () => {
             </Row>
             <Modal
               headerText="Confirm Removal"
-              body="Are you sure you wish to remove this License?"
+              body="Are you sure you wish to remove this Licence?"
               isShowing={isShowing}
               hide={toggle}
               type="delete"
@@ -145,7 +145,7 @@ export const LicenseForm: React.FC = () => {
                 try {
                   await api.deleteLicense(license);
                   toast.success(`${license.name} has successfully been deleted.`);
-                  navigate('/admin/licenses');
+                  navigate('/admin/licences');
                 } finally {
                   toggle();
                 }

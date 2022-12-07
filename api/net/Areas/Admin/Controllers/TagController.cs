@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -48,7 +49,7 @@ public class TagController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("all")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IEnumerable<TagModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
     public IActionResult FindAll()
@@ -61,7 +62,7 @@ public class TagController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<TagModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
     public IActionResult Find()
@@ -79,7 +80,7 @@ public class TagController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(TagModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
@@ -97,13 +98,13 @@ public class TagController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(TagModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
     public IActionResult Add(TagModel model)
     {
-        var result = _service.Add((Tag)model);
+        var result = _service.AddAndSave((Tag)model);
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new TagModel(result));
     }
 
@@ -113,13 +114,13 @@ public class TagController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(TagModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
     public IActionResult Update(TagModel model)
     {
-        var result = _service.Update((Tag)model);
+        var result = _service.UpdateAndSave((Tag)model);
         return new JsonResult(new TagModel(result));
     }
 
@@ -129,13 +130,13 @@ public class TagController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(TagModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Tag" })]
     public IActionResult Delete(TagModel model)
     {
-        _service.Delete((Tag)model);
+        _service.DeleteAndSave((Tag)model);
         return new JsonResult(model);
     }
     #endregion

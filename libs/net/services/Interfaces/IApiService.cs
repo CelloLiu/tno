@@ -14,6 +14,10 @@ namespace TNO.Services;
 /// </summary>
 public interface IApiService
 {
+    #region Helper Methods
+    public Task<T> HandleRequestFailure<T>(Func<Task<T>> callbackDelegate, bool ignoreError, T defaultResponse);
+    #endregion
+
     #region Lookups
     /// <summary>
     /// Make an AJAX request to the api to get the lookups.
@@ -120,6 +124,13 @@ public interface IApiService
     /// <param name="contentReference"></param>
     /// <returns></returns>
     public Task<ContentReferenceModel?> UpdateContentReferenceAsync(ContentReferenceModel contentReference);
+
+    /// <summary>
+    /// Make an AJAX request to the api to update the specified content reference with Kafka information.
+    /// </summary>
+    /// <param name="contentReference"></param>
+    /// <returns></returns>
+    public Task<ContentReferenceModel?> UpdateContentReferenceKafkaAsync(ContentReferenceModel contentReference);
 
     /// <summary>
     /// Make an AJAX request to the api to add the specified content.

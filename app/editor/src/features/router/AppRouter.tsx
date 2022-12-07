@@ -1,19 +1,17 @@
 import { DefaultLayout } from 'components/layout';
 import { AccessRequest } from 'features/access-request';
 import { AdminRouter } from 'features/admin';
-import { ContentForm, ContentListView, ContentLogs } from 'features/content';
+import { ContentForm, ContentListView, ContentLogs, MorningReport } from 'features/content';
 import { Login } from 'features/login';
 import { ReportsRouter } from 'features/reports';
 import { StorageListView } from 'features/storage';
 import { ContentTypeName } from 'hooks';
 import React from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { useApp } from 'store/hooks';
 import { Claim, InternalServerError, NotFound } from 'tno-core';
 
 import { PrivateRoute } from '.';
-
-let isInitialized = false;
 
 export interface IAppRouter {
   name: string;
@@ -21,18 +19,19 @@ export interface IAppRouter {
 
 /**
  * AppRouter provides a SPA router to manage routes.
+ * Renders router when the application has been initialized.
  * @returns AppRouter component.
  */
 export const AppRouter: React.FC<IAppRouter> = ({ name }) => {
-  const [, { init, isUserReady }] = useApp();
-  const isReady = isUserReady();
+  const [, { authenticated }] = useApp();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (!isInitialized && isReady) {
-      isInitialized = true;
-      init();
-    }
-  }, [init, isReady]);
+    // There is a race condition, when keycloak is ready state related to user claims will not be.
+    // Additionally, when the user is not authenticated keycloak also is not initialized (which makes no sense).
+    if (!authenticated && !window.location.pathname.startsWith('/login'))
+      navigate(`/login?redirectTo=${window.location.pathname}`);
+  }, [authenticated, navigate]);
 
   return (
     <Routes>
@@ -95,6 +94,10 @@ export const AppRouter: React.FC<IAppRouter> = ({ name }) => {
               element={<ContentForm contentType={ContentTypeName.Image} />}
             ></PrivateRoute>
           }
+        />
+        <Route
+          path="morning/reports"
+          element={<PrivateRoute claims={Claim.editor} element={<MorningReport />}></PrivateRoute>}
         />
         <Route
           path="storage"

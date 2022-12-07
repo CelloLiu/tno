@@ -37,10 +37,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -84,10 +80,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -137,10 +129,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -160,10 +148,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -212,10 +196,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -251,10 +231,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -303,10 +279,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -346,10 +318,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -396,10 +364,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -414,6 +378,10 @@ namespace TNO.DAL.Migrations
 
                     b.Property<int?>("IngestTypeId")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_hidden");
 
                     b.Property<int>("LicenseId")
                         .HasColumnType("integer")
@@ -478,10 +446,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -532,10 +496,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -547,10 +507,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -593,10 +549,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -612,10 +564,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -656,10 +604,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -677,10 +621,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -726,10 +666,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -741,10 +677,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -790,10 +722,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -815,10 +743,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -858,10 +782,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -900,10 +820,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -940,10 +856,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -955,10 +867,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -996,10 +904,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1011,10 +915,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1056,10 +956,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1071,10 +967,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1115,10 +1007,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1154,10 +1042,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1207,10 +1091,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1246,10 +1126,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1290,10 +1166,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -1363,10 +1235,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1414,10 +1282,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1429,10 +1293,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1470,10 +1330,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1485,10 +1341,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1554,10 +1406,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1598,10 +1446,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1637,10 +1481,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -1682,10 +1522,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1722,10 +1558,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1761,10 +1593,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1805,10 +1633,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1832,10 +1656,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -1871,10 +1691,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -1912,10 +1728,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1951,10 +1763,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -2020,10 +1828,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2061,10 +1865,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2100,10 +1900,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2150,10 +1946,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -2215,10 +2007,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
-
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2264,10 +2052,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2303,10 +2087,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2345,10 +2125,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2378,10 +2154,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2419,10 +2191,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2434,10 +2202,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2478,10 +2242,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2517,10 +2277,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2568,10 +2324,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2587,10 +2339,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2632,10 +2380,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
-
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
 
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
@@ -2680,10 +2424,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2735,10 +2475,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2781,8 +2517,10 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_system_account");
 
-                    b.Property<Guid>("Key")
-                        .HasColumnType("uuid")
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
                         .HasColumnName("key");
 
                     b.Property<DateTime?>("LastLoginOn")
@@ -2824,10 +2562,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()
@@ -2884,10 +2618,6 @@ namespace TNO.DAL.Migrations
                         .HasColumnType("character varying(250)")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
                     b.Property<DateTime>("CreatedOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2918,10 +2648,6 @@ namespace TNO.DAL.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)")
                         .HasColumnName("updated_by");
-
-                    b.Property<Guid>("UpdatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by_id");
 
                     b.Property<DateTime>("UpdatedOn")
                         .ValueGeneratedOnAdd()

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
@@ -52,7 +53,7 @@ public class IngestController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<IngestModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
     public IActionResult FindAll()
@@ -65,7 +66,7 @@ public class IngestController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("find")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<IngestModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
     public IActionResult Find()
@@ -83,7 +84,7 @@ public class IngestController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IngestModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
@@ -101,13 +102,13 @@ public class IngestController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IngestModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
     public IActionResult Add(IngestModel model)
     {
-        var result = _service.Add(model.ToEntity(_serializerOptions));
+        var result = _service.AddAndSave(model.ToEntity(_serializerOptions));
         result = _service.FindById(result.Id)!;
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new IngestModel(result, _serializerOptions));
     }
@@ -118,13 +119,13 @@ public class IngestController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IngestModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
     public IActionResult Update(IngestModel model)
     {
-        var result = _service.Update(model.ToEntity(_serializerOptions), true);
+        var result = _service.UpdateAndSave(model.ToEntity(_serializerOptions), true);
         result = _service.FindById(result.Id)!;
         return new JsonResult(new IngestModel(result, _serializerOptions));
     }
@@ -135,13 +136,13 @@ public class IngestController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IngestModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Ingest" })]
     public IActionResult Delete(IngestModel model)
     {
-        _service.Delete(model.ToEntity(_serializerOptions));
+        _service.DeleteAndSave(model.ToEntity(_serializerOptions));
         return new JsonResult(model);
     }
     #endregion

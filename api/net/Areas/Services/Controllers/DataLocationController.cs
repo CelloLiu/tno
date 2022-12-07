@@ -1,19 +1,21 @@
 using System.Net;
+using System.Net.Mime;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.DataLocation;
 using TNO.API.Models;
 using TNO.DAL.Services;
-using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// DataLocationController class, provides DataLocation endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Administrator)]
+// [ClientRoleAuthorize(ClientRole.Administrator)]
+[Authorize]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -49,7 +51,7 @@ public class DataLocationController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("{name}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(DataLocationModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "DataLocation" })]

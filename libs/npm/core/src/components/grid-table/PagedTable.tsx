@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { GridTable, IGridTableProps, IPage } from '.';
 
 export interface IPagedTableProps<CT extends object = Record<string, unknown>>
@@ -6,8 +8,6 @@ export interface IPagedTableProps<CT extends object = Record<string, unknown>>
    * A page of data.
    */
   page: IPage<CT>;
-  /** Pass the table the active row id to highlight it */
-  activeId?: number;
 }
 
 /**
@@ -17,24 +17,26 @@ export interface IPagedTableProps<CT extends object = Record<string, unknown>>
  */
 export const PagedTable = <CT extends object = Record<string, unknown>>({
   page,
-  columns,
-  onRowClick,
-  onChangePage,
-  onChangeSort,
-  isLoading,
-  header,
   sorting,
-  hiddenColumns,
-  activeId,
+  infiniteScroll,
+  ...rest
 }: IPagedTableProps<CT>) => {
+  const [items, setItems] = React.useState<CT[]>(page.items);
+  const [addToInfiniteItems, setAddToInfiniteItems] = React.useState<boolean>(false);
+  React.useEffect(() => {
+    if (addToInfiniteItems) {
+      setItems((prevItems) => prevItems.concat(page.items));
+      setAddToInfiniteItems(false);
+    } else {
+      // we don't want stale items when user changes sorting or filter from something other than scrolling
+      setItems(page.items);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.items]);
   return (
     <GridTable
-      columns={columns}
-      hiddenColumns={hiddenColumns}
-      data={page.items}
-      isLoading={isLoading}
-      activeId={activeId}
-      header={header}
+      data={infiniteScroll ? items : page.items}
+      infiniteScroll={infiniteScroll}
       paging={{
         manualPagination: true,
         pageIndex: page.pageIndex,
@@ -48,9 +50,7 @@ export const PagedTable = <CT extends object = Record<string, unknown>>({
       filters={{
         manualFilters: true,
       }}
-      onRowClick={onRowClick}
-      onChangePage={onChangePage}
-      onChangeSort={onChangeSort}
+      {...rest}
     ></GridTable>
   );
 };

@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.Content;
@@ -6,14 +8,14 @@ using TNO.API.Models;
 using TNO.DAL.Models;
 using TNO.DAL.Services;
 using TNO.Entities;
-using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// ContentController class, provides Content endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Administrator)]
+// [ClientRoleAuthorize(ClientRole.Administrator)]
+[Authorize]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -50,7 +52,7 @@ public class ContentController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Content" })]
@@ -68,7 +70,7 @@ public class ContentController : ControllerBase
     /// <param name="source"></param>
     /// <returns></returns>
     [HttpGet("find")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Content" })]
@@ -85,13 +87,13 @@ public class ContentController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]
     public IActionResult Add(ContentModel model)
     {
-        var result = _contentService.Add((Content)model);
+        var result = _contentService.AddAndSave((Content)model);
         return new JsonResult(new ContentModel(result));
 
         // TODO: Figure out how to return a 201 for a route in a different controller.
@@ -108,7 +110,7 @@ public class ContentController : ControllerBase
     /// <param name="files"></param>
     /// <returns></returns>
     [HttpPost("{id}/upload")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "Content" })]

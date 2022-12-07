@@ -4,45 +4,48 @@ import {
   IdType,
   Row,
   SortingRule,
+  TableInstance,
   useFilters,
   useFlexLayout,
   useGlobalFilter,
   usePagination,
+  useRowSelect,
   useSortBy,
   useTable,
 } from 'react-table';
 
-import { Row as FlexRow } from '../flex';
-import { Spinner } from '../spinners';
+import { Loading, Show } from '..';
 import { Pager, SortIndicator } from '.';
 import * as styled from './styled';
 
 /**
  * GridTable properties.
  */
-export interface IGridTableProps<CT extends object = Record<string, unknown>> {
+export interface IGridTableProps<T extends object = Record<string, unknown>> {
   /** Class name */
   className?: string;
+  /** Whether or not you wish to use the infinite scroll variant */
+  infiniteScroll?: boolean;
   /**
    * An array of column definitions.
    */
-  columns: Column<CT>[];
+  columns: Column<T>[];
   /**
    * An array of row data.
    */
-  data: CT[];
+  data: T[];
   /**
    * Handle row click event.
    */
-  onRowClick?: (row: Row<CT>) => void;
+  onRowClick?: (row: Row<T>) => void;
   /**
    * The page has changed.
    */
-  onChangePage?: (pageIndex: number, pageSize?: number) => void;
+  onChangePage?: (pageIndex: number, pageSize: number, instance: TableInstance<T>) => void;
   /**
    * The sort has changed.
    */
-  onChangeSort?: (sortBy: Array<SortingRule<CT>>) => void;
+  onChangeSort?: (sortBy: Array<SortingRule<T>>, instance: TableInstance<T>) => void;
   /**
    * Header components.
    */
@@ -81,7 +84,7 @@ export interface IGridTableProps<CT extends object = Record<string, unknown>> {
     /**
      * Initial sorting rules.
      */
-    sortBy?: Array<SortingRule<CT>>;
+    sortBy?: Array<SortingRule<T>>;
   };
   filters?: {
     /**
@@ -93,10 +96,6 @@ export interface IGridTableProps<CT extends object = Record<string, unknown>> {
    * Flag to indicate whether table is loading data or not.
    */
   isLoading?: boolean;
-  /** Pass the table the active row id to highlight it */
-  activeId?: number | string;
-  /** The assessor property name to identify the active row. */
-  activeAssessor?: string;
   /**
    * Whether to include manual page sizing on the pager
    */
@@ -104,7 +103,35 @@ export interface IGridTableProps<CT extends object = Record<string, unknown>> {
   /**
    * Provide an array of columns to hide from the table
    */
-  hiddenColumns?: IdType<CT>[];
+  hiddenColumns?: IdType<T>[];
+  /**
+   * How to get the row Id.  By default it uses the row index position.
+   */
+  getRowId?: (originalRow: T, relativeIndex: number, parent?: Row<T> | undefined) => string;
+  /**
+   * Whether to enable multi select.  Defaults to false.
+   */
+  isMulti?: boolean;
+  /**
+   * Whether selected rows should be automatically reset when data loads.  Defaults to true.
+   */
+  autoResetSelectedRows?: boolean;
+  /**
+   * Whether to maintain selected rows when data is refreshed.  Defaults to true.
+   */
+  maintainSelectedRows?: boolean;
+  /**
+   * The initial selected rows.
+   */
+  selectedRowIds?: Record<IdType<T>, boolean>;
+  /**
+   * Event fires when selected rows changes.
+   */
+  onSelectedRowsChange?: (selectedRows: Row<T>[], instance: TableInstance<T>) => void;
+  /**
+   * Whether to add to infinite items - helps the system to determine whether to clear infinite list if filter is applied.
+   */
+  setAddToInfiniteItems?: (add: boolean) => void;
 }
 
 /**
@@ -126,15 +153,21 @@ export const GridTable = <T extends object>({
   isLoading,
   hiddenColumns = [],
   filters,
-  activeId,
-  activeAssessor = 'id',
   manualPageSize,
+  isMulti,
+  autoResetSelectedRows = true,
+  maintainSelectedRows = true,
+  selectedRowIds: initSelectedRowIds,
+  onSelectedRowsChange,
+  getRowId,
+  infiniteScroll,
+  setAddToInfiniteItems,
 }: IGridTableProps<T>) => {
   const {
-    showPaging = true,
+    showPaging = infiniteScroll ? false : true,
     manualPagination = false,
     pageIndex: initialPageIndex = 0,
-    pageSize: initialPageSize = 10,
+    pageSize: initialPageSize = 20,
     pageCount: initialPageCount = -1,
   } = paging || {};
   const { manualFilters = false } = filters || {};
@@ -143,11 +176,14 @@ export const GridTable = <T extends object>({
     {
       columns,
       data,
+      autoResetSelectedRows: autoResetSelectedRows,
       manualPagination: manualPagination,
       manualSortBy: manualSortBy,
       manualFilters: manualFilters,
       pageCount: initialPageCount,
+      getRowId,
       initialState: {
+        selectedRowIds: initSelectedRowIds ?? ({} as Record<IdType<T>, boolean>),
         pageIndex: initialPageIndex,
         pageSize: initialPageSize,
         sortBy: initialSortBy,
@@ -159,6 +195,7 @@ export const GridTable = <T extends object>({
     useSortBy,
     usePagination,
     useFlexLayout,
+    useRowSelect,
   );
   const {
     getTableProps,
@@ -176,6 +213,7 @@ export const GridTable = <T extends object>({
     previousPage,
     setPageSize,
     setHiddenColumns,
+    selectedFlatRows,
     state: { pageIndex, pageSize, sortBy },
   } = instance;
   const [currentPage, setCurrentPage] = React.useState({ pageIndex, pageSize });
@@ -192,6 +230,30 @@ export const GridTable = <T extends object>({
     pageSize,
   };
 
+  const [activeRow, setActiveRow] = React.useState<Row<T>>();
+
+  // for infinite scrolling
+  const observer = React.useRef<IntersectionObserver>();
+  // ref is only used in element if infiniteScroll is true
+  const lastRowRef = React.useCallback(
+    (node: HTMLDivElement) => {
+      if (isLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && canNextPage) {
+          setAddToInfiniteItems && setAddToInfiniteItems(true);
+          nextPage();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, canNextPage, setAddToInfiniteItems, nextPage],
+  );
+
+  React.useEffect(() => {
+    if (!maintainSelectedRows) instance.toggleAllRowsSelected(false);
+  }, [data, instance, maintainSelectedRows]);
+
   // The user / system disables a column
   React.useEffect(() => {
     setHiddenColumns(hiddenColumns);
@@ -207,15 +269,55 @@ export const GridTable = <T extends object>({
   React.useEffect(() => {
     // Only notify parent if the change came internally.
     if (currentPage.pageIndex !== pageIndex || currentPage.pageSize !== pageSize) {
-      onChangePage(pageIndex, pageSize);
+      onChangePage(pageIndex, pageSize, instance);
       setCurrentPage({ pageIndex, pageSize });
     }
-  }, [onChangePage, pageIndex, pageSize, currentPage]);
+  }, [onChangePage, pageIndex, pageSize, currentPage, instance]);
 
   React.useEffect(() => {
-    if (sortBy.length !== initialSortBy.length || !sortBy.every((v, i) => v === initialSortBy[i]))
-      onChangeSort(sortBy);
-  }, [initialSortBy, onChangeSort, sortBy]);
+    if (
+      sortBy.length !== initialSortBy.length ||
+      !sortBy.every((v, i) => v.id === initialSortBy[i].id && v.desc === initialSortBy[i].desc)
+    ) {
+      onChangeSort(sortBy, instance);
+    }
+  }, [initialSortBy, instance, onChangeSort, sortBy]);
+
+  React.useEffect(() => {
+    if (!!selectedFlatRows) {
+      onSelectedRowsChange?.(selectedFlatRows, instance);
+      if (selectedFlatRows.length === 0) setActiveRow(undefined);
+    }
+    // For some reason 'onSelectedRowsChange' results in spam...
+  }, [selectedFlatRows, onSelectedRowsChange, instance]);
+
+  const handleRowClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>, row: Row<T>) => {
+    // Deselect all selected rows on a normal click.
+    if (!isMulti || (!e.ctrlKey && !row.isSelected)) instance.toggleAllRowsSelected(false);
+    if (!row.isSelected) {
+      // Make the row selected and active.
+      row.toggleRowSelected(true);
+      setActiveRow(row);
+    } else if (activeRow?.id === row.id) {
+      // Only change the active row if ctrl is pressed.
+      if (e.ctrlKey && selectedFlatRows.length > 1) {
+        const index = selectedFlatRows[0].index === row.index ? 1 : 0;
+        row.toggleRowSelected(false);
+        setActiveRow(selectedFlatRows[index]);
+      }
+    } else if (!e.ctrlKey) {
+      // Selecting an active row when multiple are selected will just change the active row.
+      setActiveRow(row);
+    } else {
+      // Remove selected item.
+      row.toggleRowSelected(false);
+    }
+    onRowClick?.({ ...row, isSelected: !row.isSelected });
+  };
+
+  const onRowRenderClassName = (row: Row<T>) => {
+    return `${row.isSelected ? 'selected' : ''}${activeRow?.id === row.id ? ' active' : ''}`;
+  };
 
   return (
     <styled.GridTable className={`table${className ? ` ${className}` : ''}`} {...getTableProps()}>
@@ -235,21 +337,16 @@ export const GridTable = <T extends object>({
           </div>
         ))}
       </div>
-      {isLoading ? (
-        <FlexRow justifyContent="center">
-          <Spinner />
-        </FlexRow>
-      ) : (
-        <div {...getTableBodyProps()}>
-          {page.map((row) => {
-            prepareRow(row);
+      <div {...getTableBodyProps()}>
+        {page.map((row, index) => {
+          prepareRow(row);
+          if (page.length === index + 1 && infiniteScroll) {
             return (
               <div
-                className={
-                  !!activeId && activeId === (row.original as any)[activeAssessor] ? 'active' : ''
-                }
                 {...row.getRowProps()}
-                onClick={() => onRowClick && onRowClick(row)}
+                onClick={(e) => handleRowClick(e, row)}
+                className={onRowRenderClassName(row)}
+                ref={lastRowRef}
               >
                 {row.cells.map((cell) => {
                   return (
@@ -260,9 +357,27 @@ export const GridTable = <T extends object>({
                 })}
               </div>
             );
-          })}
-        </div>
-      )}
+          } else
+            return (
+              <div
+                {...row.getRowProps()}
+                onClick={(e) => handleRowClick(e, row)}
+                className={onRowRenderClassName(row)}
+              >
+                {row.cells.map((cell) => {
+                  return (
+                    <div {...cell.getCellProps()}>
+                      {cell.render('Cell') as unknown as React.ReactNode}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+        })}
+        <Show visible={isLoading}>
+          <Loading />
+        </Show>
+      </div>
 
       {showFooter && (
         <div>

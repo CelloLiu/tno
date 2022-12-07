@@ -117,7 +117,7 @@ spec:
             - name: Service__VolumePath
               valueFrom:
                 configMapKeyRef:
-                  name: capture-service
+                  name: clip-service
                   key: VOLUME_PATH
           livenessProbe:
             httpGet:

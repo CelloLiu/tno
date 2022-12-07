@@ -36,45 +36,32 @@ export const NavBar: React.FC = () => {
     }
   };
 
-  const handleClick = () => {
-    setActiveHover('');
+  const handleClick = (menu: string = '') => {
+    if (activeHover === menu) setActiveHover('');
+    else setActiveHover(menu);
   };
 
   return (
     <div onMouseLeave={onMouseLeave} onMouseOver={onMouseOver} ref={ref}>
       <NavBarGroup className="navbar">
         <Row>
-          <div className="editor" onMouseOver={() => setActiveHover('editor')}>
-            <NavBarItem
-              activeHoverTab={activeHover}
-              navigateTo="/contents"
-              label="Editor"
-              claim={Claim.editor}
-            />
+          <div className="editor" onClick={() => handleClick('editor')}>
+            <NavBarItem activeHoverTab={activeHover} label="Editor" claim={Claim.editor} />
           </div>
-          <div className="admin" onMouseOver={() => setActiveHover('admin')}>
-            <NavBarItem
-              activeHoverTab={activeHover}
-              navigateTo="/admin"
-              label="Admin"
-              claim={Claim.administrator}
-            />
+          <div className="admin" onClick={() => handleClick('admin')}>
+            <NavBarItem activeHoverTab={activeHover} label="Admin" claim={Claim.administrator} />
           </div>
-          <div className="report" onMouseOver={() => setActiveHover('report')}>
-            <NavBarItem
-              activeHoverTab={activeHover}
-              navigateTo="/reports"
-              label="Reports"
-              claim={Claim.administrator}
-            />
+          <div className="report" onClick={() => handleClick('report')}>
+            <NavBarItem activeHoverTab={activeHover} label="Reports" claim={Claim.administrator} />
           </div>
         </Row>
       </NavBarGroup>
-      <NavBarGroup hover className="navbar" onClick={handleClick}>
+      <NavBarGroup hover className="navbar" onClick={() => handleClick()}>
         <Row hidden={!activeHover}>
           {/* Editor */}
           <Show visible={activeHover === 'editor'}>
             <NavBarItem navigateTo="/contents" label="Content" claim={Claim.editor} />
+            <NavBarItem navigateTo="/morning/reports" label="Morning Report" claim={Claim.editor} />
             <NavBarItem navigateTo="/storage" label="Storage" claim={Claim.editor} />
             <NavBarItem
               navigateTo="/contents/log"
@@ -95,7 +82,7 @@ export const NavBar: React.FC = () => {
             <NavBarItem navigateTo="/admin/users" label="Users" claim={Claim.administrator} />
             <NavBarItem navigateTo="/admin/sources" label="Sources" claim={Claim.administrator} />
             <NavBarItem navigateTo="/admin/products" label="Products" claim={Claim.administrator} />
-            <NavBarItem navigateTo="/admin/licenses" label="Licenses" claim={Claim.administrator} />
+            <NavBarItem navigateTo="/admin/licences" label="Licences" claim={Claim.administrator} />
             <NavBarItem navigateTo="/admin/actions" label="Actions" claim={Claim.administrator} />
             <NavBarItem
               navigateTo="/admin/connections"

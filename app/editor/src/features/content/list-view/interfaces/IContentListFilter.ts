@@ -6,10 +6,12 @@ export interface IContentListFilter {
   pageIndex: number;
   pageSize: number;
   includedInCategory: boolean;
+  includeHidden: boolean;
   contentType?: ContentTypeName;
   sourceId: number;
   otherSource: string;
   productId: number;
+  productIds?: number[];
   ownerId: number | '';
   userId: number | '';
   timeFrame: number | '';

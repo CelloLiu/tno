@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -46,7 +47,7 @@ public class ContentReferenceController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<ContentReferenceModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult Find()
@@ -65,7 +66,7 @@ public class ContentReferenceController : ControllerBase
     /// <param name="uid"></param>
     /// <returns></returns>
     [HttpGet("{source}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
@@ -83,13 +84,13 @@ public class ContentReferenceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{source}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult Update(ContentReferenceModel model)
     {
-        var result = _service.Update(model.ToEntity());
+        var result = _service.UpdateAndSave(model.ToEntity());
         return new JsonResult(new ContentReferenceModel(result));
     }
 
@@ -99,13 +100,13 @@ public class ContentReferenceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{source}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult Delete(ContentReferenceModel model)
     {
-        _service.Delete(model.ToEntity());
+        _service.DeleteAndSave(model.ToEntity());
         return new JsonResult(model);
     }
     #endregion

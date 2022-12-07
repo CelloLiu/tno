@@ -95,8 +95,6 @@ public abstract class BaseService
         services
             .AddSingleton<IConfiguration>(this.Configuration)
             .Configure<ServiceOptions>(this.Configuration.GetSection("Service"))
-            .Configure<AuthClientOptions>(this.Configuration.GetSection("Auth:Keycloak"))
-            .Configure<OpenIdConnectOptions>(this.Configuration.GetSection("Auth:OIDC"))
             .Configure<JsonSerializerOptions>(options =>
             {
                 options.DefaultIgnoreCondition = jsonSerializerOptions.DefaultIgnoreCondition;
@@ -111,6 +109,8 @@ public abstract class BaseService
                 options.AddConsole();
             })
             .AddTransient<JwtSecurityTokenHandler>()
+            .Configure<AuthClientOptions>(this.Configuration.GetSection("Auth:Keycloak"))
+            .Configure<OpenIdConnectOptions>(this.Configuration.GetSection("Auth:OIDC"))
             .AddTransient<IHttpRequestClient, HttpRequestClient>()
             .AddTransient<IOpenIdConnectRequestClient, OpenIdConnectRequestClient>()
             .AddTransient<IApiService, ApiService>();

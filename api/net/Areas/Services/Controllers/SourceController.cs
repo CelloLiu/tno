@@ -1,17 +1,19 @@
 using System.Net;
+using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.Ingest;
 using TNO.API.Models;
 using TNO.DAL.Services;
-using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// SourceController class, provides Source endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Administrator)]
+// [ClientRoleAuthorize(ClientRole.Administrator)]
+[Authorize]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -44,7 +46,7 @@ public class SourceController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet("{code}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(SourceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "Source" })]
@@ -60,7 +62,7 @@ public class SourceController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IEnumerable<SourceModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "Source" })]
     public IActionResult GetSources()

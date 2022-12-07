@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mime;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Admin.Models.License;
@@ -16,10 +17,10 @@ namespace TNO.API.Areas.Admin.Controllers;
 [ApiController]
 [Area("admin")]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/[area]/licenses")]
-[Route("api/[area]/licenses")]
-[Route("v{version:apiVersion}/[area]/licenses")]
-[Route("[area]/licenses")]
+[Route("api/v{version:apiVersion}/[area]/licences")]
+[Route("api/[area]/licences")]
+[Route("v{version:apiVersion}/[area]/licences")]
+[Route("[area]/licences")]
 [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.Unauthorized)]
 [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.Forbidden)]
 public class LicenseController : ControllerBase
@@ -45,7 +46,7 @@ public class LicenseController : ControllerBase
     /// </summary>
     /// <returns></returns>
     [HttpGet]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(IPaged<LicenseModel>), (int)HttpStatusCode.OK)]
     [SwaggerOperation(Tags = new[] { "License" })]
     public IActionResult FindAll()
@@ -59,7 +60,7 @@ public class LicenseController : ControllerBase
     /// <param name="id"></param>
     /// <returns></returns>
     [HttpGet("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(LicenseModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "License" })]
@@ -77,13 +78,13 @@ public class LicenseController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(LicenseModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "License" })]
     public IActionResult Add(LicenseModel model)
     {
-        var result = _service.Add(model.ToEntity());
+        var result = _service.AddAndSave(model.ToEntity());
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, new LicenseModel(result));
     }
 
@@ -93,13 +94,13 @@ public class LicenseController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(LicenseModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "License" })]
     public IActionResult Update(LicenseModel model)
     {
-        var result = _service.Update(model.ToEntity());
+        var result = _service.UpdateAndSave(model.ToEntity());
         return new JsonResult(new LicenseModel(result));
     }
 
@@ -109,13 +110,13 @@ public class LicenseController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpDelete("{id}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(LicenseModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "License" })]
     public IActionResult Delete(LicenseModel model)
     {
-        _service.Delete(model.ToEntity());
+        _service.DeleteAndSave(model.ToEntity());
         return new JsonResult(model);
     }
     #endregion

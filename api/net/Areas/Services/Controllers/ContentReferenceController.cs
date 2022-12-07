@@ -1,17 +1,19 @@
 using System.Net;
+using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using TNO.API.Areas.Services.Models.ContentReference;
 using TNO.API.Models;
 using TNO.DAL.Services;
-using TNO.Keycloak;
 
 namespace TNO.API.Areas.Services.Controllers;
 
 /// <summary>
 /// ContentReferenceController class, provides ContentReference endpoints for the api.
 /// </summary>
-[ClientRoleAuthorize(ClientRole.Administrator)]
+// [ClientRoleAuthorize(ClientRole.Administrator)]
+[Authorize]
 [ApiController]
 [Area("services")]
 [ApiVersion("1.0")]
@@ -46,15 +48,15 @@ public class ContentReferenceController : ControllerBase
     /// <param name="uid"></param>
     /// <returns></returns>
     [HttpGet("{source}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NoContent)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult FindByKey(string source, [FromQuery] string uid)
     {
-        var result = _service.FindByKey(source, uid);
-        if (result == null) return new NoContentResult();
-        return new JsonResult(new ContentReferenceModel(result));
+        var reference = _service.FindByKey(source, uid);
+        if (reference == null) return new NoContentResult();
+        return new JsonResult(new ContentReferenceModel(reference));
     }
 
     /// <summary>
@@ -63,13 +65,13 @@ public class ContentReferenceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPost]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.Created)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult Add(ContentReferenceModel model)
     {
-        var result = _service.Add(model.ToEntity());
+        var result = _service.AddAndSave(model.ToEntity());
         return CreatedAtAction(nameof(FindByKey), new { source = result.Source, uid = result.Uid }, new ContentReferenceModel(result));
     }
 
@@ -79,13 +81,33 @@ public class ContentReferenceController : ControllerBase
     /// <param name="model"></param>
     /// <returns></returns>
     [HttpPut("{source}")]
-    [Produces("application/json")]
+    [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
     [SwaggerOperation(Tags = new[] { "ContentReference" })]
     public IActionResult Update(ContentReferenceModel model)
     {
-        var result = _service.Update(model.ToEntity());
+        var result = _service.UpdateAndSave(model.ToEntity());
+        return new JsonResult(new ContentReferenceModel(result));
+    }
+
+    /// <summary>
+    /// Update content reference in database with Kafka information.
+    /// </summary>
+    /// <param name="model"></param>
+    /// <returns></returns>
+    [HttpPut("{source}/kafka")]
+    [Produces(MediaTypeNames.Application.Json)]
+    [ProducesResponseType(typeof(ContentReferenceModel), (int)HttpStatusCode.OK)]
+    [ProducesResponseType(typeof(ErrorResponseModel), (int)HttpStatusCode.BadRequest)]
+    [SwaggerOperation(Tags = new[] { "ContentReference" })]
+    public IActionResult UpdateKafka(ContentReferenceModel model)
+    {
+        var reference = _service.FindByKey(model.Source, model.Uid);
+        if (reference == null) return new NoContentResult();
+        reference.Offset = model.Offset;
+        reference.Partition = model.Partition;
+        var result = _service.UpdateAndSave(reference);
         return new JsonResult(new ContentReferenceModel(result));
     }
     #endregion
