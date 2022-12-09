@@ -125,19 +125,24 @@ public class CssHelper : ICssHelper
     {
         // CSS uses the preferred_username value as a username, but it's not the actual username...
         var key = principal.GetKey() ?? throw new NotAuthorizedException("The 'preferred_username' is required but missing from token");
-        var username = principal.GetUsername() ?? throw new NotAuthorizedException("The 'username' is required by missing from token");
         var user = _userService.FindByUserKey(key);
 
         // If user doesn't exist, add them to the database.
         if (user == null)
         {
+            var username = principal.GetUsername() ?? throw new NotAuthorizedException("The 'username' is required by missing from token");
             var email = principal.GetEmail() ?? throw new NotAuthorizedException("The 'email' is required but missing from token");
-            // Check if the user has been manually added by their email address.
-            var users = _userService.FindByEmail(email).Where(u => u.IsEnabled);
+            user = _userService.FindByUsername(username);
 
-            // If only one account has the email, we can assume it's a preapproved user.
-            if (users.Count() == 1) user = users.First();
-            else if (users.Count() > 1) throw new NotAuthorizedException($"There are multiple enabled users with the same email '{email}'");
+            if (user == null)
+            {
+                // Check if the user has been manually added by their email address.
+                var users = _userService.FindByEmail(email).Where(u => u.IsEnabled);
+
+                // If only one account has the email, we can assume it's a preapproved user.
+                if (users.Count() == 1) user = users.First();
+                else if (users.Count() > 1) throw new NotAuthorizedException($"There are multiple enabled users with the same email '{email}'");
+            }
 
             // Fetch the roles for the user
             var userRoles = await _cssService.GetRolesForUserAsync(key);
@@ -160,7 +165,6 @@ public class CssHelper : ICssHelper
             }
             else if (user != null)
             {
-                // The user exists in the database by their email, but not their username.
                 // The user was created in TNO initially, but now the user has logged in and activated their account.
                 user.Username = username;
                 user.DisplayName = principal.GetDisplayName() ?? user.DisplayName;
@@ -175,6 +179,7 @@ public class CssHelper : ICssHelper
                 // Apply the preapproved roles to the user.
                 var roles = await UpdateUserRolesAsync(key, user.Roles.Split(",").Select(r => r[1..^1]).ToArray());
                 user.Roles = String.Join(",", roles.Select(r => $"[{r}]"));
+                _userService.UpdateAndSave(user);
                 return user;
             }
         }
@@ -198,7 +203,7 @@ public class CssHelper : ICssHelper
     public async Task<string[]> UpdateUserRolesAsync(string username, string[] roles)
     {
         var userRoles = await _cssService.GetRolesForUserAsync(username);
-        if (userRoles.Users.Length == 0) return Array.Empty<string>();
+        if (userRoles.Users.Length == 0) userRoles = new UserRoleResponseModel() { };
         else if (userRoles.Users.Length > 1) throw new InvalidOperationException($"There is more than one user with this username '{username}'");
 
         // Only update roles that exist in keycloak.
