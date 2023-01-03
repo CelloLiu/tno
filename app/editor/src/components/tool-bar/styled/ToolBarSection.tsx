@@ -3,13 +3,23 @@ import { Col } from 'tno-core';
 
 export const ToolBarSection = styled(Col)`
   padding: 0.5em;
-
-  .children-container {
+  min-height: 7.25em;
+  .title-container {
+    font-weight: 600;
+    font-size: 1.25em;
+    margin-top: 1em;
+  }
     .white-bg {
       background-color: ${(props) => props.theme.css.backgroundColor};
       padding: 0.25em;
       border-radius: 4px;
     }
+    .title-children {
+      border-radius: 4px;
+    }
+
+  .children-container {
+
     .txt {
       background-color: ${(props) => props.theme.css.backgroundColor};
     }
@@ -53,7 +63,7 @@ export const ToolBarSection = styled(Col)`
     }
     background-color: ${(props) => props.theme.css.filterBackgroundColor};
     border-radius: 4px;
-    min-height: 4.35em;
+    min-height: 5.25em;
     align-items: center;
   }
   .label-container {

@@ -1,18 +1,22 @@
-import { IOptionItem, OptionItem, Select } from 'components/form';
+import { IOptionItem, OptionItem, Select, SelectDate } from 'components/form';
 import { ToggleGroup } from 'components/toggle-group';
 import { ToolBarSection } from 'components/tool-bar';
-import { IContentListFilter } from 'features/content/list-view/interfaces';
+import {
+  IContentListAdvancedFilter,
+  IContentListFilter,
+} from 'features/content/list-view/interfaces';
 import { useLookupOptions } from 'hooks';
 import React from 'react';
 import { FaCalendarAlt, FaClock, FaFilter, FaIcons, FaUsers } from 'react-icons/fa';
 import { useApp, useContent } from 'store/hooks';
-import { Col, FieldSize, Row } from 'tno-core';
+import { Col, FieldSize, fromQueryString, Row } from 'tno-core';
 import { getUserOptions } from 'utils';
 
 import { InputOption } from './InputOption';
 
 export interface IFilterContentSectionProps {
   onChange: (filter: IContentListFilter) => void;
+  onAdvancedFilterChange: (filter: IContentListAdvancedFilter) => void;
 }
 
 /**
@@ -20,11 +24,34 @@ export interface IFilterContentSectionProps {
  * @param onChange determine what happens when filter changes are applied
  * @returns The filter content section
  */
-export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({ onChange }) => {
-  const [{ filter }] = useContent();
+export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({
+  onChange,
+  onAdvancedFilterChange,
+}) => {
+  const [{ filter, filterAdvanced }] = useContent();
   const [{ productOptions: pOptions, users }] = useLookupOptions();
   const [productOptions, setProductOptions] = React.useState<IOptionItem[]>([]);
   const [userOptions, setUserOptions] = React.useState<IOptionItem[]>([]);
+  const [{ userInfo }] = useApp();
+
+  const search = fromQueryString(window.location.search);
+
+  const timeFrames = [
+    { label: 'TODAY', value: 0 },
+    { label: '24 HRS', value: 1 },
+    { label: '48 HRS', value: 2 },
+    { label: 'ALL', value: 3 },
+  ];
+  const timeFrameSelected = timeFrames[search.timeFrame ?? 0].label.toLowerCase() ?? 'today';
+
+  const usersSelections = [
+    { label: 'ALL CONTENT', value: 0 },
+    { label: 'MY CONTENT', value: userInfo?.id ?? 0 },
+  ];
+  const usersSelected =
+    usersSelections
+      .find((i) => (i.value === search.userId ? +search.userId : 0))
+      ?.label.toLowerCase() ?? 'my content';
 
   React.useEffect(() => {
     setUserOptions(getUserOptions(users.filter((u) => !u.isSystemAccount)));
@@ -33,8 +60,6 @@ export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({ onC
   React.useEffect(() => {
     setProductOptions([new OptionItem<number>('Any', 0), ...pOptions]);
   }, [pOptions]);
-
-  const [{ userInfo }] = useApp();
 
   // Change userId filter with value of dropdown
   const onOtherClick = (value?: number) => {
@@ -49,7 +74,7 @@ export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({ onC
             <Row>
               <FaClock className="icon-indicator" />
               <ToggleGroup
-                defaultSelected="today"
+                defaultSelected={timeFrameSelected}
                 options={[
                   {
                     label: 'TODAY',
@@ -62,12 +87,11 @@ export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({ onC
                   { label: 'ALL', onClick: () => onChange({ ...filter, timeFrame: 3 }) },
                 ]}
               />
-              <FaCalendarAlt className="action-icon" />
             </Row>
             <Row>
               <FaUsers className="icon-indicator" />
               <ToggleGroup
-                defaultSelected="my content"
+                defaultSelected={usersSelected}
                 options={[
                   {
                     label: 'ALL CONTENT',
@@ -87,6 +111,37 @@ export const FilterContentSection: React.FC<IFilterContentSectionProps> = ({ onC
             </Row>
           </Col>
           <Col>
+            <Row className="date-range">
+              <FaCalendarAlt className="action-icon" />
+
+              <SelectDate
+                name="startDate"
+                placeholderText="mm/dd/yyyy"
+                selected={
+                  !!filterAdvanced.startDate ? new Date(filterAdvanced.startDate) : undefined
+                }
+                width="8em"
+                onChange={(date) =>
+                  onAdvancedFilterChange({
+                    ...filterAdvanced,
+                    startDate: !!date ? date.toString() : undefined,
+                  })
+                }
+              />
+              <SelectDate
+                name="endDate"
+                placeholderText="mm/dd/yyyy"
+                selected={!!filterAdvanced.endDate ? new Date(filterAdvanced.endDate) : undefined}
+                width="8em"
+                onChange={(date) => {
+                  date?.setHours(23, 59, 59);
+                  onAdvancedFilterChange({
+                    ...filterAdvanced,
+                    endDate: !!date ? date.toString() : undefined,
+                  });
+                }}
+              />
+            </Row>
             <Row>
               <FaIcons className="icon-indicator" height="2em" width="2em" />
               <Select
