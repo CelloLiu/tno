@@ -30,6 +30,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useApp, useContent, useWorkOrders } from 'store/hooks';
+import { filterEnabled } from 'store/hooks/lookup/utils';
 import { IAjaxRequest } from 'store/slices';
 import {
   Area,
@@ -403,9 +404,6 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                             label="Headline"
                             value={props.values.headline}
                           />
-                          <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
-                            <FormikText name="byline" label="Byline" required />
-                          </Show>
                         </Col>
                         <Col>
                           <Row>
@@ -416,7 +414,7 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                                 ''
                               }
                               label="Designation"
-                              options={productOptions}
+                              options={filterEnabled(productOptions, props.values.productId)}
                               required
                             />
                             <FormikSelect
@@ -431,13 +429,13 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                                   const source = sources.find((ds) => ds.id === newValue.value);
                                   props.setFieldValue('sourceId', newValue.value);
                                   props.setFieldValue('otherSource', source?.code ?? '');
-                                  if (!!source) {
+                                  if (!!source?.licenseId)
                                     props.setFieldValue('licenseId', source.licenseId);
+                                  if (!!source?.productId)
                                     props.setFieldValue('productId', source.productId);
-                                  }
                                 }
                               }}
-                              options={sourceOptions.filter(
+                              options={filterEnabled(sourceOptions, props.values.sourceId).filter(
                                 (x) =>
                                   !isImageForm(contentType) ||
                                   x.label.includes('(TC)') ||
@@ -448,6 +446,16 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                               )}
                               required={!props.values.otherSource}
                               isDisabled={!!props.values.tempSource}
+                            />
+                            <FormikSelect
+                              name="productId"
+                              value={
+                                productOptions.find((mt) => mt.value === props.values.productId) ??
+                                ''
+                              }
+                              label="Designation"
+                              options={productOptions}
+                              required
                             />
                             <FormikHidden name="otherSource" />
                             <Show visible={!isImageForm(contentType)}>
@@ -468,19 +476,15 @@ export const ContentForm: React.FC<IContentFormProps> = ({
                           </Row>
                         </Col>
                       </Row>
-                      <Row></Row>
                       <Row>
                         <Col grow={1}></Col>
-                        <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
-                          <Col grow={1}>
-                            <FormikText name="edition" label="Edition" />
-                          </Col>
-                        </Show>
                       </Row>
                       <Show visible={!isSnippetForm(contentType) && !isImageForm(contentType)}>
                         <Row>
+                          <FormikText name="byline" label="Byline" required />
                           <FormikText name="section" label="Section" required />
                           <FormikText name="page" label="Page" />
+                          <FormikText name="edition" label="Edition" />
                         </Row>
                       </Show>
                       <Show visible={isSnippetForm(contentType)}>

@@ -19,7 +19,7 @@ export const initialContentState: IContentState = {
     otherSource: '',
     productId: 0,
     ownerId: '',
-    userId: '',
+    userId: 0,
     timeFrame: 0,
     onTicker: '',
     commentary: '',
@@ -27,7 +27,7 @@ export const initialContentState: IContentState = {
     sort: [],
   },
   filterAdvanced: {
-    fieldType: fieldTypes[0].value,
+    fieldType: fieldTypes[3].value,
     logicalOperator: LogicalOperator.Contains,
     searchTerm: '',
   },

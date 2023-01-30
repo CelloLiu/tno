@@ -13,6 +13,7 @@ import moment from 'moment';
 import React from 'react';
 import { TbLanguage } from 'react-icons/tb';
 import { useContent, useLookup } from 'store/hooks';
+import { filterEnabled } from 'store/hooks/lookup/utils';
 import {
   Button,
   ButtonVariant,
@@ -30,7 +31,7 @@ import {
 } from 'tno-core';
 import { getSortableOptions } from 'utils';
 
-import { IContentForm } from './interfaces';
+import { IContentForm, IStream } from './interfaces';
 import * as styled from './styled';
 import { TimeLogTable } from './TimeLogTable';
 import { getTotalTime } from './utils';
@@ -77,7 +78,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
         size: fileReference.size,
       } as IFile)
     : undefined;
-  const [streamUrl, setStreamUrl] = React.useState<string>('');
+  const [stream, setStream] = React.useState<IStream>();
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   React.useEffect(() => {
@@ -111,21 +112,26 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
   }, [categories]);
 
   React.useEffect(() => {
-    setSeriesOptions(series.map((m: any) => new OptionItem(m.name, m.id)));
+    setSeriesOptions(series.map((m: any) => new OptionItem(m.name, m.id, m.isEnabled)));
   }, [series]);
 
   React.useEffect(() => {
-    setStreamUrl(path ? `/api/editor/contents/stream?path=${path}` : '');
+    // TODO: Get MimeType from file.
+    setStream(
+      !!path ? { url: `/api/editor/contents/stream?path=${path}`, type: 'video/mp4' } : undefined,
+    );
   }, [path]);
 
   React.useEffect(() => {
-    if (!!streamUrl && !!videoRef.current) {
-      videoRef.current.src = streamUrl;
+    if (!!stream && !!videoRef.current) {
+      videoRef.current.src = stream.url;
     }
-  }, [streamUrl, videoRef]);
+  }, [stream, videoRef]);
 
   const setMedia = () => {
-    setStreamUrl(!!streamUrl ? '' : `/api/editor/contents/stream?path=${path}`);
+    setStream(
+      !!stream ? undefined : { url: `/api/editor/contents/stream?path=${path}`, type: 'video/mp4' },
+    );
   };
 
   return (
@@ -139,7 +145,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
                 label="Series"
                 width={FieldSize.Medium}
                 value={seriesOptions.find((s: any) => s.value === values.seriesId) ?? ''}
-                options={seriesOptions}
+                options={filterEnabled(seriesOptions, values.seriesId)}
                 isDisabled={!!values.otherSeries}
                 onChange={(e) => {
                   setFieldValue('otherSeries', '');
@@ -217,7 +223,10 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
             name="categories"
             label="Event of Day Category"
             width={FieldSize.Medium}
-            options={categoryOptions}
+            options={filterEnabled(
+              categoryOptions,
+              !!values.categories?.length ? values.categories[0].id : null,
+            )}
             value={
               !!values.categories?.length
                 ? categoryOptions.find((c) => c.value === values.categories[0].id)
@@ -337,7 +346,13 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
               </Button>
 
               <Modal
-                body={<Wysiwyg label="Summary" required fieldName="summary" />}
+                body={
+                  <Wysiwyg
+                    label={contentType === ContentTypeName.PrintContent ? 'Story' : 'Summary'}
+                    required
+                    fieldName={contentType === ContentTypeName.PrintContent ? 'body' : 'summary'}
+                  />
+                }
                 isShowing={showExpandModal}
                 hide={() => setShowExpandModal(!showExpandModal)}
                 customButtons={
@@ -391,7 +406,7 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
               download(values.id, file?.name ?? `${values.otherSource}-${values.id}`);
             }}
             onDelete={() => {
-              setStreamUrl('');
+              setStream(undefined);
               if (!!videoRef.current) {
                 videoRef.current.src = '';
               }
@@ -407,18 +422,18 @@ export const ContentSummaryForm: React.FC<IContentSummaryFormProps> = ({
               variant={ButtonVariant.secondary}
               className={!file ? 'hidden' : 'show-player'}
             >
-              {!!streamUrl ? 'Hide Player' : 'Show Player'}
+              {!!stream ? 'Hide Player' : 'Show Player'}
             </Button>
           </Show>
         </Row>
-        <Show visible={contentType === ContentTypeName.Image && !!streamUrl}>
+        <Show visible={contentType === ContentTypeName.Image && !!stream}>
           <Col>
-            <img alt="" className="object-fit" src={streamUrl}></img>
+            <img alt="" className="object-fit" src={stream?.url}></img>
           </Col>
         </Show>
         <Show visible={contentType !== ContentTypeName.Image}>
           <Col className="video" alignItems="stretch">
-            <video ref={videoRef} className={!streamUrl ? 'hidden' : ''} controls>
+            <video ref={videoRef} className={!stream ? 'hidden' : ''} controls>
               HTML5 Video is required for this example
             </video>
           </Col>
